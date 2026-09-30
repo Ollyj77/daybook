@@ -1,0 +1,14 @@
+{
+  "name": "Daybook",
+  "short_name": "Daybook",
+  "description": "OJ's calendar and rolling to-do list.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F2F4F7",
+  "theme_color": "#1F5FD1",
+  "icons": [
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

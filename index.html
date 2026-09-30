@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Daybook">
+<meta name="theme-color" content="#F2F4F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E131A" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-512.png">
+<title>Daybook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a pocket diary. Sticky header with quick-add, a month calendar as the main view, Manage as a secondary page. Wide screens split calendar and day detail side by side. */
+:root{
+  --bg:#F2F4F7; --surface:#FFFFFF; --ink:#17202B; --muted:#5F6B7C; --rule:#DCE1E8; --soft:#E7EDF7;
+  --accent:#1F5FD1; --accent-ink:#FFFFFF; --warn:#B8430E;
+  --c-uni:#2C6BDB; --c-study:#7449D0; --c-life:#15875C; --c-other:#B07A0C; --c-work:#B8327E;
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E131A; --surface:#161D26; --ink:#E5E9EF; --muted:#8F9AAB; --rule:#28323F; --soft:#1B2638;
+  --accent:#6E9CFF; --accent-ink:#0B1220; --warn:#F0895A;
+  --c-uni:#6E9CFF; --c-study:#AA8BF1; --c-life:#4BC794; --c-other:#E2B04A; --c-work:#F07BB8; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0E131A; --surface:#161D26; --ink:#E5E9EF; --muted:#8F9AAB; --rule:#28323F; --soft:#1B2638;
+  --accent:#6E9CFF; --accent-ink:#0B1220; --warn:#F0895A;
+  --c-uni:#6E9CFF; --c-study:#AA8BF1; --c-life:#4BC794; --c-other:#E2B04A; --c-work:#F07BB8; color-scheme:dark }
+html{color-scheme:light}
+html,body{min-height:100%}
+body{margin:0;padding-bottom:env(safe-area-inset-bottom,0px);-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+img{max-width:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45}
+*{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:980px;margin:0 auto;padding-inline:16px}
+
+header.top{position:sticky;top:0;padding-top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--rule)}
+.top .wrap{display:flex;flex-direction:column;gap:10px;padding-block:14px 10px}
+.titlerow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.titlerow h1{font-family:var(--f-display);font-weight:700;font-size:1.55rem;letter-spacing:-.01em;margin:0;text-wrap:balance}
+.titlerow .meta{font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+
+.addbar{display:flex;gap:8px}
+.addbar input{flex:1;min-width:0;border:1px solid var(--rule);background:var(--surface);border-radius:var(--r);padding:11px 12px}
+.addbar input::placeholder{color:var(--muted)}
+.btn{border:1px solid var(--rule);background:var(--surface);border-radius:var(--r);padding:10px 14px;font-weight:600}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.danger{color:var(--warn)}
+.btn.small{padding:6px 10px;font-size:.85rem}
+.preview{font-size:.8rem;color:var(--muted);min-height:1.2em;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.preview b{color:var(--ink);font-weight:600}
+
+.hdright{display:flex;align-items:center;gap:10px}
+.sync{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);display:inline-flex;align-items:center;gap:5px}
+.sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c-life)}
+.sync[data-s=saving]::before{background:var(--c-other)}
+.sync[data-s=offline]::before,.sync[data-s=auth]::before{background:var(--warn)}
+.setup{padding:16px;display:flex;flex-direction:column;gap:12px;max-width:560px}
+.setup h2{font-family:var(--f-display);margin:0;font-size:1.2rem}
+.setup ol{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:.9rem}
+.setup ol b{color:var(--ink)}
+
+main .wrap{padding-block:18px 60px}
+.grid2{display:grid;gap:22px}
+@media (min-width:760px){.grid2{grid-template-columns:5fr 6fr;align-items:start}}
+.grid2>*{min-width:0}
+
+h2.sec{font-family:var(--f-display);font-size:1.05rem;font-weight:600;margin:0 0 8px;display:flex;align-items:baseline;gap:8px}
+h2.sec .count{font-family:var(--f-mono);font-size:.75rem;color:var(--muted);font-weight:400}
+.block{display:flex;flex-direction:column;gap:18px}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}
+.empty{padding:14px;color:var(--muted);font-size:.9rem}
+
+/* schedule */
+.ev{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:10px 12px;border-top:1px solid var(--rule);cursor:pointer;background:none;border-left:0;border-right:0;border-bottom:0;width:100%;text-align:left}
+.ev:first-child{border-top:0}
+.ev .t{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1.35}
+.ev .body{border-left:3px solid var(--cat);padding-left:10px;min-width:0}
+.ev .name{font-weight:600;overflow-wrap:anywhere}
+.ev .sub{font-size:.8rem;color:var(--muted)}
+.ev.past{opacity:.55}
+.nowline{display:flex;align-items:center;gap:8px;padding:0 12px;font-family:var(--f-mono);font-size:.7rem;color:var(--warn)}
+.nowline::after{content:"";flex:1;height:1px;background:var(--warn)}
+
+/* tasks */
+.task{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-top:1px solid var(--rule)}
+.task:first-child{border-top:0}
+.check{flex:none;width:22px;height:22px;border-radius:6px;border:2px solid var(--cat);background:none;display:grid;place-items:center;margin-top:1px;padding:0}
+.check svg{width:14px;height:14px;opacity:0}
+.task.done .check{background:var(--cat)}
+.task.done .check svg{opacity:1}
+.check svg path{stroke:var(--surface)}
+.task .txt{flex:1;min-width:0;background:none;border:0;padding:0;text-align:left;cursor:pointer}
+.task .name{overflow-wrap:anywhere}
+.task.done .name{text-decoration:line-through;color:var(--muted)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
+.chip{font-size:.72rem;padding:1px 7px;border-radius:999px;background:var(--soft);color:var(--muted);font-family:var(--f-mono)}
+.chip.late{color:var(--warn)}
+.chip.cat{color:var(--cat);background:none;border:1px solid var(--cat)}
+
+/* week */
+.dayrow{display:grid;grid-template-columns:64px 1fr;gap:10px;padding:10px 12px;border-top:1px solid var(--rule)}
+.dayrow:first-child{border-top:0}
+.dayrow .dl{font-family:var(--f-display);font-weight:600;line-height:1.1}
+.dayrow .dl small{display:block;font-family:var(--f-mono);font-weight:400;font-size:.72rem;color:var(--muted)}
+.dayrow.today .dl{color:var(--accent)}
+.dayrow .items{display:flex;flex-direction:column;gap:4px;min-width:0}
+.mini{display:flex;gap:8px;align-items:baseline;font-size:.9rem;background:none;border:0;padding:0;text-align:left;cursor:pointer;min-width:0}
+.mini .tm{font-family:var(--f-mono);font-size:.75rem;color:var(--muted);flex:none;width:44px}
+.mini .dot{width:8px;height:8px;border-radius:50%;background:var(--cat);flex:none;transform:translateY(-1px)}
+.mini .box{width:12px;height:12px;border-radius:3px;border:1.5px solid var(--cat);flex:none;transform:translateY(1px)}
+.mini.done .box{background:var(--cat)}
+.mini.done span:last-child{text-decoration:line-through;color:var(--muted)}
+.mini span:last-child{overflow-wrap:anywhere;min-width:0}
+.pager{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.pager .lbl{font-family:var(--f-display);font-weight:600;font-size:1.05rem;flex:1;min-width:0}
+
+/* month */
+.mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--rule)}
+.mgrid .hd{background:var(--surface);font-family:var(--f-mono);font-size:.7rem;color:var(--muted);text-align:center;padding:6px 0}
+.cell{background:var(--surface);min-height:62px;padding:5px;border:0;text-align:left;display:flex;flex-direction:column;gap:4px;min-width:0}
+.cell.out{background:var(--bg);color:var(--muted)}
+.cell .n{font-family:var(--f-mono);font-size:.8rem;font-variant-numeric:tabular-nums}
+.cell.today .n{background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:0 6px;align-self:flex-start}
+.cell.sel{box-shadow:inset 0 0 0 2px var(--ink)}
+.cell .dots{display:flex;flex-wrap:wrap;gap:3px}
+.cell .dots i{width:6px;height:6px;border-radius:50%;background:var(--cat)}
+.cell .dots i.sq{border-radius:1px;background:none;border:1.5px solid var(--cat)}
+
+/* manage */
+.row{display:flex;gap:10px;align-items:center;padding:10px 12px;border-top:1px solid var(--rule);width:100%;background:none;border-left:0;border-right:0;border-bottom:0;text-align:left}
+.row:first-child{border-top:0}
+.row .bar{width:3px;align-self:stretch;background:var(--cat);border-radius:2px;flex:none}
+.row .name{font-weight:600;overflow-wrap:anywhere}
+.row .sub{font-size:.8rem;color:var(--muted)}
+.row>div{min-width:0;flex:1}
+.hint{font-size:.85rem;color:var(--muted);max-width:65ch}
+.hint code{font-family:var(--f-mono);font-size:.8rem;background:var(--soft);padding:0 4px;border-radius:4px}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(10,14,20,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+@media (min-width:640px){.scrim{align-items:center}}
+.sheet{background:var(--surface);width:100%;max-width:520px;max-height:92%;overflow:auto;border-radius:16px 16px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px}
+@media (min-width:640px){.sheet{border-radius:16px}}
+.sheet h3{font-family:var(--f-display);margin:0;font-size:1.2rem}
+.field{display:flex;flex-direction:column;gap:5px}
+.field>label,.lab{font-size:.75rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select{border:1px solid var(--rule);background:var(--bg);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two>*{min-width:0}
+.seg{display:flex;border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.seg button{flex:1;border:0;background:var(--bg);padding:8px 4px;font-weight:600;font-size:.88rem;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.wds{display:flex;gap:4px}
+.wds button{flex:1;border:1px solid var(--rule);background:var(--bg);border-radius:6px;padding:6px 0;font-family:var(--f-mono);font-size:.75rem}
+.wds button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions .spacer{flex:1}
+.err{color:var(--warn);font-size:.85rem}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:.88rem;z-index:30;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="titlerow">
+      <h1 id="hdDate">Today</h1>
+      <div class="hdright"><span class="sync" id="sync" data-s="ok" hidden></span><span class="meta" id="hdMeta"></span><button class="btn small" type="button" id="manageBtn">Manage</button></div>
+    </div>
+    <form class="addbar" id="addForm" autocomplete="off">
+      <input id="quick" aria-label="Add a task or event" placeholder="Add… e.g. meal prep weekly, clean car monthly, tute tue 2-4pm every week #uni">
+      <button class="btn" type="button" id="moreBtn" title="Add with details">Details</button>
+      <button class="btn primary" type="submit">Add</button>
+    </form>
+    <div class="preview" id="preview" aria-live="polite"></div>
+  </div>
+</header>
+<main><div class="wrap" id="view"><div class="panel"><div class="empty">Loading your daybook…</div></div></div></main>
+<div id="sheetRoot"></div>
+
+<script>
+(() => {
+/* ---------- dates ---------- */
+const pad = n => String(n).padStart(2, "0");
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const P = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const addD = (d,n) => new Date(d.getFullYear(), d.getMonth(), d.getDate()+n);
+const dIdx = d => (d.getDay()+6) % 7;               // Mon = 0
+const sow = d => addD(d, -dIdx(d));
+const som = d => new Date(d.getFullYear(), d.getMonth(), 1);
+const addM = (d,n) => new Date(d.getFullYear(), d.getMonth()+n, 1);
+const dim = (y,m) => new Date(y, m+1, 0).getDate();
+const diffD = (a,b) => Math.round((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate()) - Date.UTC(a.getFullYear(),a.getMonth(),a.getDate())) / 864e5);
+const diffM = (a,b) => (b.getFullYear()-a.getFullYear())*12 + b.getMonth() - a.getMonth();
+const today = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
+const WD = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const LONGWD = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const LONGMON = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const fmtShort = d => `${WD[dIdx(d)]} ${d.getDate()} ${MON[d.getMonth()]}`;
+const isoWeek = d => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const n = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - n); const y = new Date(Date.UTC(t.getUTCFullYear(),0,1)); return Math.ceil(((t - y) / 864e5 + 1) / 7); };
+const fmtTime = s => { if (!s) return ""; let [h,m] = s.split(":").map(Number); const ap = h >= 12 ? "pm" : "am"; h = h % 12 || 12; return m ? `${h}:${pad(m)}${ap}` : `${h}${ap}`; };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const CATS = { uni:"Uni", study:"Study", work:"Work", life:"Life", other:"Other" };
+const catVar = c => `--cat:var(--c-${CATS[c] ? c : "other"})`;
+
+/* ---------- recurrence ---------- */
+// Returns occurrence dates (YYYY-MM-DD) of an item between from..to (Date, inclusive).
+function occ(it, from, to) {
+  if (!it.date) return [];
+  const a = P(it.date);
+  const until = it.until ? P(it.until) : null;
+  const end = until && until < to ? until : to;
+  const skip = new Set(it.skip || []);
+  const out = [];
+  const push = d => { if (d >= from && d <= end && d >= a) { const k = ymd(d); if (!skip.has(k)) out.push(k); } };
+  const r = it.repeat;
+  if (!r || !r.unit) { push(a); return out; }
+  const ev = Math.max(1, r.every || 1);
+  if (r.unit === "day") {
+    let k = Math.max(0, Math.ceil(diffD(a, from) / ev));
+    for (let d = addD(a, k*ev); d <= end; k++, d = addD(a, k*ev)) push(d);
+  } else if (r.unit === "week") {
+    const days = (r.days && r.days.length) ? [...r.days].sort((x,y)=>x-y) : [dIdx(a)];
+    const aw = sow(a);
+    for (let w = sow(from); w <= end; w = addD(w, 7)) {
+      const wi = diffD(aw, w) / 7;
+      if (wi < 0 || wi % ev) continue;
+      for (const di of days) push(addD(w, di));
+    }
+  } else if (r.unit === "month") {
+    const dom = a.getDate();
+    for (let m = som(from); m <= end; m = addM(m, 1)) {
+      const mi = diffM(a, m);
+      if (mi < 0 || mi % ev) continue;
+      push(new Date(m.getFullYear(), m.getMonth(), Math.min(dom, dim(m.getFullYear(), m.getMonth()))));
+    }
+  }
+  return out;
+}
+const latestOcc = (it, ref) => { const l = occ(it, addD(ref, -800), ref); return l.length ? l[l.length-1] : null; };
+const periodStart = (scope, d) => scope === "week" ? sow(d) : scope === "month" ? som(d) : d;
+
+function repeatText(it) {
+  const r = it.repeat; if (!r || !r.unit) return "";
+  const n = r.every || 1;
+  if (r.unit === "day") return n === 1 ? "daily" : `every ${n} days`;
+  if (r.unit === "month") return n === 1 ? "monthly" : `every ${n} months`;
+  const days = r.days && r.days.length && !(it.kind === "task" && it.scope === "week") ? r.days.map(i => WD[i]).join(", ") : "";
+  const base = n === 1 ? "weekly" : n === 2 ? "fortnightly" : `every ${n} weeks`;
+  return days ? `${days} · ${base}` : base;
+}
+
+
+/* ---------- GitHub sync ----------
+   Data lives in one JSON file in a private repo: { version, updated, items: { id: {...} } }.
+   Changes queue locally (kept across reloads) and are written with the file's sha,
+   so a change made elsewhere (another device, or Claude) is fetched and re-applied instead of overwritten. */
+const CFG_KEY = "daybook.cfg", CACHE_KEY = "daybook.cache", QUEUE_KEY = "daybook.queue";
+const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+const b64dec = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, "")), c => c.charCodeAt(0)));
+const b64enc = str => { const b = new TextEncoder().encode(str); let bin = ""; for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(bin); };
+const store = { cfg: lsGet(CFG_KEY), remote: {}, sha: null, queue: lsGet(QUEUE_KEY) || [], listeners: [], flushing: false, status: "ok" };
+{ const c = lsGet(CACHE_KEY); if (c && c.items) { store.remote = c.items; store.sha = c.sha || null; } }
+const persist = () => { lsSet(CACHE_KEY, { items: store.remote, sha: store.sha }); lsSet(QUEUE_KEY, store.queue); };
+function applyOp(its, op) {
+  const n = { ...its };
+  if (op.op === "set") n[op.id] = op.data;
+  else if (op.op === "update") { if (n[op.id]) n[op.id] = { ...n[op.id], ...op.data }; }
+  else if (op.op === "delete") delete n[op.id];
+  return n;
+}
+const localView = () => store.queue.reduce(applyOp, store.remote);
+function emit() {
+  const v = localView();
+  const snap = { docs: Object.keys(v).map(id => ({ id, data: () => v[id] })) };
+  store.listeners.forEach(fn => fn(snap));
+}
+function setStatus(s) {
+  store.status = s;
+  const el = document.getElementById("sync"); if (!el) return;
+  el.hidden = !store.cfg;
+  el.dataset.s = s;
+  el.textContent = s === "saving" ? "Saving" : s === "offline" ? "Offline" : s === "auth" ? "Key problem" : "Synced";
+  el.title = s === "offline" ? "Changes are kept on this device and will sync when you're back online." : s === "auth" ? "GitHub refused the access key. Open Manage → Sync to replace it." : "";
+}
+async function gh(method, body) {
+  const { token, repo } = store.cfg;
+  const url = `https://api.github.com/repos/${repo}/contents/items.json` + (method === "GET" ? `?t=${Date.now()}` : "");
+  return fetch(url, { method, cache: "no-store", headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined });
+}
+async function pull() {
+  let r; try { r = await gh("GET"); } catch (e) { throw { code: "offline" }; }
+  if (r.status === 404) {
+    // Distinguish "file not created yet" from "no access to the repo".
+    const rr = await fetch(`https://api.github.com/repos/${store.cfg.repo}`, { cache: "no-store", headers: { Authorization: `Bearer ${store.cfg.token}`, Accept: "application/vnd.github+json" } }).catch(() => null);
+    if (rr && rr.ok) return { items: {}, sha: null };
+    throw { code: "auth" };
+  }
+  if (r.status === 401 || r.status === 403) throw { code: "auth" };
+  if (!r.ok) throw { code: "offline" };
+  const j = await r.json();
+  const data = j.content ? JSON.parse(b64dec(j.content) || "{}") : {};
+  return { items: data.items || {}, sha: j.sha };
+}
+async function flush() {
+  if (!store.cfg || store.flushing || !store.queue.length) return;
+  store.flushing = true; setStatus("saving");
+  try {
+    for (let attempt = 0; attempt < 5 && store.queue.length; attempt++) {
+      const ops = store.queue.slice();
+      const next = ops.reduce(applyOp, store.remote);
+      const body = { message: `Daybook: ${ops.length} change${ops.length > 1 ? "s" : ""}`,
+        content: b64enc(JSON.stringify({ version: 1, updated: new Date().toISOString(), items: next }, null, 1)),
+        ...(store.sha ? { sha: store.sha } : {}) };
+      let r; try { r = await gh("PUT", body); } catch (e) { throw { code: "offline" }; }
+      if (r.ok) {
+        const j = await r.json();
+        store.sha = j.content.sha; store.remote = next; store.queue = store.queue.slice(ops.length);
+        persist(); emit(); continue;
+      }
+      if (r.status === 409 || r.status === 422) { const p = await pull(); store.remote = p.items; store.sha = p.sha; persist(); continue; }
+      if (r.status === 401 || r.status === 403 || r.status === 404) throw { code: "auth" };
+      throw { code: "offline" };
+    }
+    setStatus(store.queue.length ? "offline" : "ok");
+  } catch (e) { setStatus(e.code === "auth" ? "auth" : "offline"); }
+  finally { store.flushing = false; }
+}
+async function refresh() {
+  if (!store.cfg || store.flushing) return;
+  try {
+    const p = await pull();
+    store.remote = p.items; store.sha = p.sha; persist(); emit();
+    if (store.queue.length) flush(); else setStatus("ok");
+  } catch (e) { setStatus(e.code === "auth" ? "auth" : "offline"); }
+}
+function enqueue(op) { store.queue.push(op); persist(); emit(); flush(); return Promise.resolve(); }
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+// Same small interface the planner already uses.
+const ghdb = {
+  doc(path) { const id = path.split("/")[1]; return {
+    set: data => enqueue({ op: "set", id, data }),
+    update: data => enqueue({ op: "update", id, data }),
+    delete: () => enqueue({ op: "delete", id }) }; },
+  collection() { return {
+    add: data => { const id = newId(); return enqueue({ op: "set", id, data }).then(() => ({ id })); },
+    onSnapshot: fn => { store.listeners.push(fn); emit(); return () => {}; } }; }
+};
+
+function setupPanel(errMsg, forChange) {
+  const repo = (store.cfg && store.cfg.repo) || "Ollyj77/daybook-data";
+  return `<div class="panel"><form class="setup" id="setupForm" autocomplete="off">
+    <h2>${forChange ? "Change access key" : "Connect your Daybook"}</h2>
+    <p class="hint">Your tasks and calendar are saved in your private GitHub repository. Each device needs an access key once.</p>
+    <ol>
+      <li>On github.com open <b>Settings → Developer settings → Personal access tokens → Fine-grained tokens</b>, then <b>Generate new token</b>.</li>
+      <li>Name it “Daybook”, pick the longest expiry, and under <b>Repository access</b> choose <b>Only select repositories → daybook-data</b>.</li>
+      <li>Under <b>Permissions → Repository permissions</b>, set <b>Contents</b> to <b>Read and write</b>.</li>
+      <li>Generate it, copy the key (starts with <b>github_pat_</b>) and paste it below. You can use the same key on your phone and iPad.</li>
+    </ol>
+    <div class="field"><label for="sToken">Access key</label><input id="sToken" type="password" placeholder="github_pat_…" required></div>
+    <div class="field"><label for="sRepo">Data repository</label><input id="sRepo" value="${esc(repo)}" required></div>
+    <div class="err" id="sErr">${esc(errMsg || "")}</div>
+    <div class="actions">${forChange ? `<button type="button" class="btn" id="sCancel">Cancel</button>` : ""}<span class="spacer"></span><button class="btn primary" type="submit">Connect</button></div>
+    <p class="hint">The key stays on this device. It is never added to the app's code.</p>
+  </form></div>`;
+}
+let settingsOpen = false;
+function syncSection() {
+  const n = store.queue.length;
+  return `<section><h2 class="sec">Sync</h2><div class="panel"><div class="row" style="cursor:default"><span class="bar" style="--cat:var(--c-life)"></span><div>
+    <div class="name">${esc(store.cfg ? store.cfg.repo : "Not connected")}</div>
+    <div class="sub">${store.status === "auth" ? "GitHub refused the access key. Replace it below." : store.status === "offline" ? `Offline · ${n} change${n === 1 ? "" : "s"} waiting to sync` : n ? "Saving…" : "Everything is saved"}</div></div></div>
+    <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small" type="button" data-sync="now">Sync now</button><button class="btn small" type="button" data-sync="key">Change access key</button><button class="btn small danger" type="button" data-sync="forget">Disconnect this device</button></div></div></section>`;
+}
+
+/* ---------- state ---------- */
+let db = null, items = [], loaded = false, view = "month";
+let weekOff = 0, monthOff = 0, selDay = null;
+const recent = new Set();                     // ticks made this visit stay visible
+
+
+const $ = s => document.querySelector(s);
+function toast(msg) { const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
+
+/* ---------- task visibility ---------- */
+// Current, carried-over state of a task relative to today.
+function current(it, D) {
+  const R = periodStart(it.scope, D), Rk = ymd(R);
+  if (it.scope === "someday") return it.done && !recent.has(it.id+"|someday") ? null : { key: "someday", done: !!it.done, carried: false };
+  if (!it.repeat || !it.repeat.unit) {
+    if (!it.date) return null;
+    const d = P(it.date); if (d > R) return null;
+    if (it.done) return (it.doneOn === Rk || recent.has(it.id+"|"+it.date)) ? { key: it.date, done: true, carried: d < R } : null;
+    return { key: it.date, done: false, carried: d < R };
+  }
+  const rel = occ(it, addD(R, -800), R).filter(k => released(it, k));
+  const k = rel.length ? rel[rel.length-1] : null; if (!k) return null;
+  const done = (it.doneDates || []).includes(k);
+  if (done && k !== Rk && !recent.has(it.id+"|"+k)) return null;
+  return { key: k, done, carried: k !== Rk };
+}
+// Tasks with an "after" time stay hidden on the day until that time.
+const nowHM = () => { const n = new Date(); return `${pad(n.getHours())}:${pad(n.getMinutes())}`; };
+const released = (it, k) => !(it.after && k === ymd(today()) && nowHM() < it.after);
+// "stack" tasks (e.g. lecture recordings) keep every unticked occurrence, not just the latest.
+function stackStates(it, D) {
+  const R = periodStart(it.scope, D), Rk = ymd(R), dd = it.doneDates || [];
+  if (!it.date) return [];
+  return occ(it, P(it.date), R).filter(k => released(it, k))
+    .filter(k => !dd.includes(k) || recent.has(it.id+"|"+k))
+    .map(k => ({ key: k, done: dd.includes(k), carried: k !== Rk }));
+}
+// Exact occurrence on a given period start (no carry-over).
+function exact(it, R) {
+  const k = ymd(R);
+  if (!occ(it, R, R).length) return null;
+  const done = it.repeat && it.repeat.unit ? (it.doneDates || []).includes(k) : !!it.done;
+  return { key: k, done, carried: false };
+}
+const tasks = () => items.filter(i => i.kind === "task");
+const events = () => items.filter(i => i.kind === "event");
+const eventsOn = d => events().filter(e => occ(e, d, d).length).sort((a,b) => (a.start||"").localeCompare(b.start||""));
+function tasksFor(scope, D, carry) {
+  const R = periodStart(scope, D);
+  return tasks().filter(t => (t.scope || "day") === scope)
+    .flatMap(t => carry && t.stack && t.repeat && t.repeat.unit ? stackStates(t, D).map(s => ({ t, s })) : [{ t, s: carry ? current(t, D) : exact(t, R) }])
+    .filter(x => x.s)
+    .sort((a,b) => (a.s.done - b.s.done) || (b.s.carried - a.s.carried) || (a.s.key < b.s.key ? -1 : a.s.key > b.s.key ? 1 : 0) || a.t.title.localeCompare(b.t.title));
+}
+
+async function toggle(id, key) {
+  const it = items.find(i => i.id === id); if (!it || !db) return;
+  recent.add(id+"|"+key);
+  const ref = db.doc("items/" + id);
+  try {
+    if (it.repeat && it.repeat.unit) {
+      let dd = [...(it.doneDates || [])];
+      dd = dd.includes(key) ? dd.filter(x => x !== key) : [...dd, key];
+      await ref.update({ doneDates: dd.sort().slice(-60) });
+    } else {
+      const nd = !it.done;
+      await ref.update({ done: nd, doneOn: nd ? ymd(periodStart(it.scope, today())) : null });
+    }
+  } catch (e) { toast("Couldn't save that tick. Check your connection and try again."); }
+}
+
+/* ---------- rendering pieces ---------- */
+const tick = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+function taskRow({t, s}, showCat = true) {
+  const chips = [];
+  if (s.carried) {
+    const d = P(s.key);
+    chips.push(`<span class="chip late">from ${t.scope === "week" ? "wk of " + d.getDate() + " " + MON[d.getMonth()] : t.scope === "month" ? LONGMON[d.getMonth()] : fmtShort(d)}</span>`);
+  }
+  if (t.after) chips.push(`<span class="chip">starts ${fmtTime(t.after)}</span>`);
+  const rt = repeatText(t); if (rt) chips.push(`<span class="chip">↻ ${esc(rt)}</span>`);
+  if (showCat && t.category && t.category !== "other") chips.push(`<span class="chip cat">${CATS[t.category]}</span>`);
+  return `<div class="task ${s.done ? "done" : ""}" style="${catVar(t.category)}">
+    <button class="check" data-tick="${t.id}" data-key="${s.key}" aria-label="${s.done ? "Mark not done" : "Mark done"}: ${esc(t.title)}">${tick}</button>
+    <button class="txt" data-edit="${t.id}" data-key="${s.key}"><div class="name">${esc(t.title)}</div>${chips.length ? `<div class="chips">${chips.join("")}</div>` : ""}</button>
+  </div>`;
+}
+function taskPanel(title, list, emptyMsg) {
+  const open = list.filter(x => !x.s.done).length;
+  return `<section><h2 class="sec">${title}<span class="count">${open ? open + " to do" : list.length ? "all done" : ""}</span></h2>
+    <div class="panel">${list.length ? list.map(x => taskRow(x)).join("") : `<div class="empty">${emptyMsg}</div>`}</div></section>`;
+}
+function schedule(D, isToday) {
+  const evs = eventsOn(D);
+  if (!evs.length) return `<div class="panel"><div class="empty">Nothing booked${isToday ? " today" : ""}. Add a class or appointment with a time, like “lecture 10am-12pm every wed #uni”.</div></div>`;
+  const now = new Date(), nowS = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  let html = "", placed = !isToday;
+  for (const e of evs) {
+    const endS = e.end || e.start;
+    if (!placed && (e.start || "") > nowS) { html += `<div class="nowline">now ${fmtTime(nowS)}</div>`; placed = true; }
+    const past = isToday && endS && endS < nowS;
+    html += `<button class="ev ${past ? "past" : ""}" style="${catVar(e.category)}" data-edit="${e.id}" data-key="${ymd(D)}">
+      <div class="t">${fmtTime(e.start)}${e.end ? "<br>" + fmtTime(e.end) : ""}</div>
+      <div class="body"><div class="name">${esc(e.title)}</div><div class="sub">${[e.location, repeatText(e)].filter(Boolean).map(esc).join(" · ")}</div></div>
+    </button>`;
+  }
+  if (!placed) html += `<div class="nowline">now ${fmtTime(nowS)}</div>`;
+  return `<div class="panel">${html}</div>`;
+}
+
+/* ---------- views ---------- */
+function renderMonth() {
+  const T = today(), M = addM(som(T), monthOff);
+  if (!selDay || som(P(selDay)).getTime() !== M.getTime()) selDay = monthOff === 0 ? ymd(T) : ymd(M);
+  const start = sow(M);
+  let cells = WD.map(w => `<div class="hd">${w}</div>`).join("");
+  for (let i = 0; i < 42; i++) {
+    const d = addD(start, i);
+    if (i >= 35 && d.getMonth() !== M.getMonth()) break;
+    const k = ymd(d);
+    const evs = eventsOn(d), ts = tasksFor("day", d, false).filter(x => !x.s.done);
+    const dots = [...evs.slice(0,4).map(e => `<i style="${catVar(e.category)}"></i>`), ...ts.slice(0,3).map(x => `<i class="sq" style="${catVar(x.t.category)}"></i>`)].join("");
+    cells += `<button class="cell ${d.getMonth() !== M.getMonth() ? "out" : ""} ${k === ymd(T) ? "today" : ""} ${k === selDay ? "sel" : ""}" data-day="${k}" aria-label="${fmtShort(d)}"><span class="n">${d.getDate()}</span><span class="dots">${dots}</span></button>`;
+  }
+  const S = P(selDay), isT = selDay === ymd(T);
+  const dayTasks = tasksFor("day", S, isT);
+  const mo = tasksFor("month", monthOff === 0 ? T : M, monthOff === 0);
+  const W = sow(S), curW = W.getTime() === sow(T).getTime();
+  const wk = tasksFor("week", curW ? T : W, curW);
+  return `<div class="pager"><button class="btn small" data-nav="m-1" aria-label="Previous month">←</button>
+      <span class="lbl">${LONGMON[M.getMonth()]} ${M.getFullYear()}</span>
+      ${selDay !== ymd(T) ? `<button class="btn small" data-nav="today">Today</button>` : ""}
+      <button class="btn small" data-nav="m1" aria-label="Next month">→</button></div>
+    <div class="grid2"><div class="block"><div class="panel"><div class="mgrid">${cells}</div></div>
+      ${taskPanel("Month tasks", mo, "No tasks set for this month.")}</div>
+    <div class="block"><section><h2 class="sec">${isT ? "Today" : LONGWD[dIdx(S)] + " " + S.getDate() + " " + MON[S.getMonth()]}</h2>${schedule(S, isT)}</section>
+      ${taskPanel("To do", dayTasks, "No tasks on this day.")}
+      ${taskPanel(curW ? "This week" : "Week of " + W.getDate() + " " + MON[W.getMonth()], wk, "No tasks set for this week.")}</div></div>`;
+}
+function renderManage() {
+  const T = today();
+  const row = (it, sub) => `<button class="row" style="${catVar(it.category)}" data-edit="${it.id}"><span class="bar"></span><div><div class="name">${esc(it.title)}</div><div class="sub">${esc(sub)}</div></div></button>`;
+  const evR = events().filter(e => e.repeat && e.repeat.unit).sort((a,b) => ((a.repeat.days||[dIdx(P(a.date))])[0] - (b.repeat.days||[dIdx(P(b.date))])[0]) || (a.start||"").localeCompare(b.start||""));
+  const evO = events().filter(e => !(e.repeat && e.repeat.unit) && e.date >= ymd(T)).sort((a,b) => (a.date+a.start).localeCompare(b.date+b.start));
+  const tR = tasks().filter(t => t.repeat && t.repeat.unit).sort((a,b) => a.title.localeCompare(b.title));
+  const tO = tasks().filter(t => !(t.repeat && t.repeat.unit) && !t.done && t.scope !== "someday").sort((a,b) => (a.date||"").localeCompare(b.date||""));
+  const tS = tasks().filter(t => t.scope === "someday" && !t.done);
+  const whenT = t => t.scope === "week" ? "week of " + fmtShort(P(t.date)) : t.scope === "month" ? LONGMON[P(t.date).getMonth()] : fmtShort(P(t.date));
+  const group = (title, list, fn, empty) => `<section><h2 class="sec">${title}<span class="count">${list.length || ""}</span></h2><div class="panel">${list.length ? list.map(fn).join("") : `<div class="empty">${empty}</div>`}</div></section>`;
+  return `<div class="grid2"><div class="block">
+      ${group("Timetable", evR, e => row(e, `${repeatText(e)} · ${fmtTime(e.start)}${e.end ? "–" + fmtTime(e.end) : ""}${e.location ? " · " + e.location : ""}${e.until ? " · until " + fmtShort(P(e.until)) : ""}`), "No repeating classes or events yet.")}
+      ${group("Upcoming events", evO, e => row(e, `${fmtShort(P(e.date))} · ${fmtTime(e.start)}`), "No one-off events coming up.")}
+    </div><div class="block">
+      ${group("Routines", tR, t => row(t, `${repeatText(t)} · ${t.scope === "week" ? "any day that week" : t.scope === "month" ? "any day that month" : t.after ? "starts " + fmtTime(t.after) : "on the day"}${t.stack ? " · missed ones stay" : ""}`), "No repeating tasks yet.")}
+      ${group("One-off to-dos", tO, t => row(t, whenT(t)), "Nothing outstanding.")}
+      ${group("Someday", tS, t => row(t, CATS[t.category] || "Other"), "Ideas without a date land here. Add “someday” to a task.")}
+      ${syncSection()}
+      <p class="hint">Quick-add words: <code>daily</code> <code>weekly</code> <code>fortnightly</code> <code>monthly</code> <code>every tue</code> <code>weekdays</code> <code>tomorrow</code> <code>fri</code> <code>12/10</code> <code>this week</code> <code>this month</code> <code>someday</code> <code>until 20/11</code>, a time like <code>2-4pm</code> makes it an event, and <code>#uni</code> <code>#study</code> <code>#work</code> <code>#life</code> set the category. Unfinished tasks roll forward until you tick them.</p>
+    </div></div>`;
+}
+
+function render() {
+  const T = today();
+  $("#hdDate").textContent = `${LONGWD[dIdx(T)]} ${T.getDate()} ${LONGMON[T.getMonth()]}`;
+  $("#hdMeta").textContent = `wk ${isoWeek(T)} · ${T.getFullYear()}`;
+  $("#manageBtn").textContent = view === "manage" ? "Back to calendar" : "Manage";
+  const v = $("#view");
+  setStatus(store.status);
+  if (!store.cfg) { v.innerHTML = setupPanel(); return; }
+  if (settingsOpen) { v.innerHTML = setupPanel("", true); return; }
+  if (!loaded) { v.innerHTML = store.status === "auth" ? setupPanel("GitHub refused the saved access key. Paste a new one.", false) : `<div class="panel"><div class="empty">${store.status === "offline" ? "Can't reach GitHub right now. Check your connection." : "Loading your Daybook…"}</div></div>`; return; }
+  v.innerHTML = view === "manage" ? renderManage() : renderMonth();
+}
+
+/* ---------- quick add parsing ---------- */
+const DAYRE = "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tues|tue|wed|weds|thurs|thur|thu|fri|sat|sun)";
+const dayNum = s => { const i = ["mon","tue","wed","thu","fri","sat","sun"].findIndex(k => s.toLowerCase().startsWith(k)); return i < 0 ? undefined : i; };
+const nextDow = (from, di) => addD(from, (di - dIdx(from) + 7) % 7);
+const MONRE = "(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
+function parseDateTok(s, base) {
+  let m = s.match(/^(\d{1,2})[\/.](\d{1,2})(?:[\/.](\d{2,4}))?$/);
+  let d = null;
+  if (m) { let y = m[3] ? +m[3] : base.getFullYear(); if (y < 100) y += 2000; d = new Date(y, +m[2]-1, +m[1]); if (!m[3] && d < base) d = new Date(y+1, +m[2]-1, +m[1]); return d; }
+  m = s.match(new RegExp("^(\\d{1,2})(?:st|nd|rd|th)?\\s+" + MONRE + "$", "i")) || s.match(new RegExp("^" + MONRE + "\\s+(\\d{1,2})(?:st|nd|rd|th)?$", "i"));
+  if (m) { const day = +(/^\d/.test(m[1]) ? m[1] : m[2]); const mon = (/^\d/.test(m[1]) ? m[2] : m[1]).slice(0,3).toLowerCase(); const mi = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"].indexOf(mon); d = new Date(base.getFullYear(), mi, day); if (d < base) d = new Date(base.getFullYear()+1, mi, day); return d; }
+  return null;
+}
+function toHM(h, mi, ap) { h = +h; mi = +(mi || 0); if (ap) { h = h % 12 + (ap.toLowerCase() === "pm" ? 12 : 0); } else if (h <= 6) h += 12; return `${pad(Math.min(h,23))}:${pad(Math.min(mi,59))}`; }
+
+function parseQuick(text) {
+  const T = today();
+  let t = " " + text.trim() + " ";
+  const take = (re, fn) => { const m = t.match(re); if (m) { t = t.replace(m[0], " "); fn(m); return true; } return false; };
+  const r = { kind: "task", title: "", category: "other", scope: "day", date: T, repeat: null, start: null, end: null, until: null };
+  let explicitDate = false, days = null, repeatUnit = null, every = 1, scopeSet = null;
+
+  take(/\s#(uni|study|work|life|other)\b/i, m => r.category = m[1].toLowerCase());
+  take(/\suntil\s+(\d{1,2}[\/.]\d{1,2}(?:[\/.]\d{2,4})?)(?=\s)/i, m => { const d = parseDateTok(m[1], T); if (d) r.until = d; });
+  const TM = "(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?";
+  const gotRange = take(new RegExp("\\s(?:at\\s+|from\\s+)?" + TM + "\\s*(?:-|–|to)\\s*" + TM + "(?=\\s)", "i"), m => {
+    let [, h1, m1, a1, h2, m2, a2] = m;
+    if (!a1 && !a2 && !m1 && !m2) { t = t + " " + m[0]; return; }
+    if (!a1 && a2) a1 = (+h1 > +h2 && +h2 !== 12) ? (a2.toLowerCase() === "pm" ? "am" : "pm") : a2;
+    r.start = toHM(h1, m1, a1); r.end = toHM(h2, m2, a2 || a1);
+  });
+  if (!r.start) take(/\s(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)(?=\s)/i, m => { r.start = toHM(m[1], m[2], m[3]); })
+    || take(/\s(?:at\s+)?(\d{1,2}):(\d{2})(?=\s)/i, m => { r.start = toHM(m[1], m[2], null); });
+
+  if (take(/\s(every\s+day|daily|each\s+day)(?=\s)/i, () => { repeatUnit = "day"; })) {}
+  else if (take(/\s(fortnightly|every\s+(?:2|two|other)\s+weeks?)(?=\s)/i, () => { repeatUnit = "week"; every = 2; })) {}
+  else if (take(/\severy\s+(\d+)\s+(day|week|month)s?(?=\s)/i, m => { repeatUnit = m[2].toLowerCase(); every = +m[1]; })) {}
+  else if (take(/\s(every\s+weekday|weekdays)(?=\s)/i, () => { repeatUnit = "week"; days = [0,1,2,3,4]; })) {}
+  else if (take(/\s(every\s+week|weekly)(?=\s)/i, () => { repeatUnit = "week"; })) {}
+  else if (take(/\s(every\s+month|monthly)(?=\s)/i, () => { repeatUnit = "month"; })) {}
+  // "every mon and wed" / "on tue" / "mondays"
+  take(new RegExp("\\s(every|on|next|this)\\s+(" + DAYRE + "(?:\\s*(?:,|and|&|/)\\s*" + DAYRE + ")*)(?=\\s)", "i"), m => {
+    const list = m[2].split(/\s*(?:,|and|&|\/)\s*/).map(dayNum).filter(x => x !== undefined);
+    if (m[1].toLowerCase() === "every") { repeatUnit = "week"; days = [...new Set([...(days || []), ...list])]; }
+    else { r.date = nextDow(m[1].toLowerCase() === "next" ? addD(T, 1) : T, list[0]); explicitDate = true; }
+  });
+  take(/\s(mondays|tuesdays|wednesdays|thursdays|fridays|saturdays|sundays)(?=\s)/i, m => { repeatUnit = "week"; days = [dayNum(m[1].slice(0, -1))]; });
+  take(/\s(monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?=\s)/i, m => {
+    const di = dayNum(m[1]);
+    if (repeatUnit === "week" && !days) days = [di]; else { r.date = nextDow(T, di); explicitDate = true; }
+  });
+  if (repeatUnit === "week" && !days) take(new RegExp("\\s" + DAYRE + "(?=\\s)", "i"), m => { days = [dayNum(m[1])]; });
+
+  take(/\s(today|tonight)(?=\s)/i, () => { r.date = T; explicitDate = true; });
+  take(/\s(tomorrow|tmrw|tmr)(?=\s)/i, () => { r.date = addD(T, 1); explicitDate = true; });
+  take(/\s(this|next)\s+week(?=\s)/i, m => { scopeSet = "week"; r.date = m[1].toLowerCase() === "next" ? addD(sow(T), 7) : T; });
+  take(/\s(this|next)\s+month(?=\s)/i, m => { scopeSet = "month"; r.date = m[1].toLowerCase() === "next" ? addM(som(T), 1) : T; });
+  take(/\s(someday|sometime|no\s+date)(?=\s)/i, () => { scopeSet = "someday"; });
+  take(new RegExp("\\s(?:on\\s+)?(\\d{1,2}(?:st|nd|rd|th)?\\s+" + MONRE + "|" + MONRE + "\\s+\\d{1,2}(?:st|nd|rd|th)?|\\d{1,2}[\\/.]\\d{1,2}(?:[\\/.]\\d{2,4})?)(?=\\s)", "i"), m => { const d = parseDateTok(m[1].trim(), T); if (d) { r.date = d; explicitDate = true; } });
+
+  r.title = t.replace(/\s+/g, " ").replace(/^\s*(on|at|by)\s+/i, "").replace(/\s+(on|at|by|every)\s*$/i, "").trim();
+  r.title = r.title.charAt(0).toUpperCase() + r.title.slice(1);
+
+  if (r.start) {
+    r.kind = "event";
+    if (!r.end) { const [h, mi] = r.start.split(":").map(Number); r.end = `${pad(Math.min(h+1, 23))}:${pad(mi)}`; }
+  }
+  if (repeatUnit) r.repeat = { unit: repeatUnit, every };
+  if (days) { r.repeat.days = days.sort((a,b)=>a-b); if (!explicitDate) r.date = days.map(di => nextDow(T, di)).sort((a,b)=>a-b)[0]; }
+  if (r.kind === "task") {
+    if (scopeSet) r.scope = scopeSet;
+    else if (repeatUnit === "week" && !days) r.scope = "week";
+    else if (repeatUnit === "month" && !explicitDate) r.scope = "month";
+    if (r.scope === "week") { r.date = sow(r.date); if (r.repeat) r.repeat = { unit: "week", every }; }
+    if (r.scope === "month") { r.date = som(r.date); if (r.repeat) r.repeat = { unit: "month", every }; }
+    if (r.scope === "someday") { r.date = null; r.repeat = null; }
+  } else if (r.repeat && r.repeat.unit === "week" && !days) {
+    r.repeat.days = [dIdx(r.date)];
+  }
+  return r;
+}
+function toDoc(r) {
+  const d = { kind: r.kind, title: r.title, category: r.category, date: r.date ? ymd(r.date) : null, repeat: r.repeat || null, until: r.until ? ymd(r.until) : null, created: new Date().toISOString() };
+  if (r.kind === "event") Object.assign(d, { start: r.start, end: r.end, location: r.location || "" });
+  else Object.assign(d, { scope: r.scope, done: false });
+  return d;
+}
+function describe(r) {
+  if (!r.title) return "";
+  const bits = [`<b>${r.kind === "event" ? "Event" : "Task"}</b>`];
+  if (r.kind === "event") bits.push(`${fmtShort(r.date)} ${fmtTime(r.start)}–${fmtTime(r.end)}`);
+  else bits.push(r.scope === "someday" ? "someday" : r.scope === "week" ? "any time the week of " + fmtShort(r.date) : r.scope === "month" ? "any time in " + LONGMON[r.date.getMonth()] : ymd(r.date) === ymd(today()) ? "today" : fmtShort(r.date));
+  const rt = repeatText({ ...r, repeat: r.repeat }); if (rt) bits.push("↻ " + rt);
+  if (r.until) bits.push("until " + fmtShort(r.until));
+  if (r.category !== "other") bits.push(CATS[r.category]);
+  return bits.join(" · ");
+}
+
+/* ---------- editor sheet ---------- */
+function openSheet(existing, occKey, draft) {
+  const it = existing ? JSON.parse(JSON.stringify(existing)) : toDoc(draft || { kind: "task", title: "", category: "other", scope: "day", date: today(), repeat: null });
+  if (!it.scope && it.kind === "task") it.scope = "day";
+  const st = { kind: it.kind, scope: it.scope || "day", unit: it.repeat?.unit || "", days: [...(it.repeat?.days || [])], confirmDel: false };
+  const root = $("#sheetRoot");
+  const draw = () => {
+    const isEv = st.kind === "event";
+    const showDays = st.unit === "week" && (isEv || st.scope === "day");
+    const unitOpts = isEv || st.scope === "day" ? [["","Doesn't repeat"],["day","Every day"],["week","Every week"],["month","Every month"]]
+      : st.scope === "week" ? [["","Doesn't repeat"],["week","Every week"]] : st.scope === "month" ? [["","Doesn't repeat"],["month","Every month"]] : [["","Doesn't repeat"]];
+    if (!unitOpts.some(o => o[0] === st.unit)) st.unit = "";
+    const isRepeat = existing && existing.repeat && existing.repeat.unit;
+    root.innerHTML = `<div class="scrim" id="scrim"><form class="sheet" id="sheetForm" role="dialog" aria-modal="true" aria-labelledby="shTitle">
+      <h3 id="shTitle">${existing ? "Edit" : "New"} ${isEv ? "event" : "task"}</h3>
+      <div class="seg" role="group" aria-label="Type"><button type="button" data-kind="task" aria-pressed="${!isEv}">Task</button><button type="button" data-kind="event" aria-pressed="${isEv}">Event</button></div>
+      <div class="field"><label for="fTitle">Title</label><input id="fTitle" value="${esc(it.title)}" required></div>
+      <div class="field"><label for="fCat">Category</label><select id="fCat">${Object.entries(CATS).map(([k,v]) => `<option value="${k}" ${it.category === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+      ${isEv ? `
+        <div class="field"><label for="fDate">${st.unit ? "Starts" : "Date"}</label><input type="date" id="fDate" value="${it.date || ymd(today())}"></div>
+        <div class="two"><div class="field"><label for="fStart">From</label><input type="time" id="fStart" value="${it.start || "09:00"}"></div>
+        <div class="field"><label for="fEnd">To</label><input type="time" id="fEnd" value="${it.end || "10:00"}"></div></div>
+        <div class="field"><label for="fLoc">Where</label><input id="fLoc" value="${esc(it.location || "")}" placeholder="Room, building or link"></div>`
+      : `
+        <div class="field"><span class="lab">Do it</span><div class="seg" role="group" aria-label="Do it">${[["day","On a day"],["week","In a week"],["month","In a month"],["someday","Someday"]].map(([k,v]) => `<button type="button" data-scope="${k}" aria-pressed="${st.scope === k}">${v}</button>`).join("")}</div></div>
+        ${st.scope !== "someday" ? `<div class="field"><label for="fDate">${st.scope === "week" ? "Any date in the week" : st.scope === "month" ? "Any date in the month" : st.unit ? "Starts" : "Date"}</label><input type="date" id="fDate" value="${it.date || ymd(today())}"></div>` : ""}`}
+      ${unitOpts.length > 1 ? `<div class="two"><div class="field"><label for="fUnit">Repeat</label><select id="fUnit">${unitOpts.map(([k,v]) => `<option value="${k}" ${st.unit === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
+        <div class="field" ${st.unit ? "" : "hidden"}><label for="fEvery">Every</label><select id="fEvery">${[1,2,3,4,6,12].map(n => `<option value="${n}" ${(it.repeat?.every || 1) === n ? "selected" : ""}>${n === 1 ? "1 (every time)" : n}</option>`).join("")}</select></div></div>` : ""}
+      ${showDays ? `<div class="field"><span class="lab">On</span><div class="wds">${WD.map((w,i) => `<button type="button" data-wd="${i}" aria-pressed="${st.days.includes(i)}">${w}</button>`).join("")}</div></div>` : ""}
+      ${st.unit ? `<div class="field"><label for="fUntil">Until (optional)</label><input type="date" id="fUntil" value="${it.until || ""}"></div>` : ""}
+      <div class="err" id="fErr"></div>
+      <div class="actions">
+        ${existing ? `<button type="button" class="btn danger" id="delBtn">${st.confirmDel ? "Tap again to delete" : isRepeat ? "Delete series" : "Delete"}</button>` : ""}
+        ${existing && isRepeat && occKey && existing.kind === "event" ? `<button type="button" class="btn" id="skipBtn">Remove ${fmtShort(P(occKey))} only</button>` : ""}
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="cancelBtn">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div></form></div>`;
+    if (!existing) setTimeout(() => { const f = $("#fTitle"); if (f && !f.value) f.focus(); }, 30);
+  };
+  const capture = () => {
+    const g = id => { const el = $("#" + id); return el ? el.value : undefined; };
+    if (g("fTitle") !== undefined) it.title = g("fTitle");
+    if (g("fCat")) it.category = g("fCat");
+    if (g("fDate") !== undefined) it.date = g("fDate");
+    if (g("fStart") !== undefined) { it.start = g("fStart"); it.end = g("fEnd"); it.location = g("fLoc"); }
+    if (g("fUnit") !== undefined) st.unit = g("fUnit");
+    if (g("fEvery") !== undefined) it.repeat = { ...(it.repeat || {}), every: +g("fEvery") };
+    if (g("fUntil") !== undefined) it.until = g("fUntil") || null;
+  };
+  const close = () => { root.innerHTML = ""; };
+  draw();
+  root.onclick = async e => {
+    const b = e.target.closest("button");
+    if (e.target.id === "scrim" || (b && b.id === "cancelBtn")) return close();
+    if (!b) return;
+    if (b.dataset.kind) { capture(); st.kind = b.dataset.kind; it.kind = st.kind; if (st.kind === "event" && st.unit === "week" && !st.days.length) st.days = [dIdx(P(it.date || ymd(today())))]; draw(); }
+    else if (b.dataset.scope) { capture(); st.scope = b.dataset.scope; draw(); }
+    else if (b.dataset.wd) { capture(); const i = +b.dataset.wd; st.days = st.days.includes(i) ? st.days.filter(x => x !== i) : [...st.days, i]; draw(); }
+    else if (b.id === "delBtn") {
+      if (!st.confirmDel) { capture(); st.confirmDel = true; draw(); return; }
+      try { await db.doc("items/" + existing.id).delete(); close(); toast("Deleted"); } catch (err) { $("#fErr").textContent = "Couldn't delete. Check your connection and try again."; }
+    } else if (b.id === "skipBtn") {
+      try { await db.doc("items/" + existing.id).update({ skip: [...(existing.skip || []), occKey].slice(-100) }); close(); toast(`Removed ${fmtShort(P(occKey))}`); } catch (err) { $("#fErr").textContent = "Couldn't save. Try again."; }
+    }
+  };
+  root.onchange = e => { if (e.target.id === "fUnit") { capture(); if (st.unit === "week" && !st.days.length) st.days = [dIdx(P(it.date || ymd(today())))]; draw(); } };
+  root.onsubmit = async e => {
+    e.preventDefault(); capture();
+    const err = $("#fErr");
+    if (!it.title.trim()) { err.textContent = "Give it a title."; return; }
+    const out = { ...it, title: it.title.trim(), kind: st.kind };
+    delete out.id;
+    if (st.kind === "event") {
+      if (!out.start) { err.textContent = "Events need a start time."; return; }
+      if (!out.end || out.end < out.start) { const [h, m] = out.start.split(":").map(Number); out.end = `${pad(Math.min(h+1,23))}:${pad(m)}`; }
+      delete out.scope; delete out.done; delete out.doneOn; delete out.doneDates;
+    } else {
+      out.scope = st.scope;
+      if (st.scope === "someday") out.date = null;
+      else { const d = P(out.date || ymd(today())); out.date = ymd(periodStart(st.scope, d)); }
+      delete out.start; delete out.end; delete out.location;
+      if (out.done === undefined) out.done = false;
+    }
+    if (st.unit && out.date) {
+      out.repeat = { unit: st.unit, every: out.repeat?.every || 1 };
+      if (st.unit === "week" && (st.kind === "event" || st.scope === "day")) out.repeat.days = (st.days.length ? st.days : [dIdx(P(out.date))]).sort((a,b)=>a-b);
+      out.doneDates = out.doneDates || [];
+    } else { out.repeat = null; out.until = null; }
+    for (const k of Object.keys(out)) if (out[k] === undefined) delete out[k];
+    try {
+      if (existing) await db.doc("items/" + existing.id).set(out);
+      else await db.collection("items").add({ ...out, created: new Date().toISOString() });
+      close(); toast(existing ? "Saved" : "Added");
+    } catch (ex) { err.textContent = "Couldn't save. Check your connection and try again."; }
+  };
+}
+
+/* ---------- wiring ---------- */
+const quick = $("#quick");
+quick.addEventListener("input", () => { const v = quick.value.trim(); $("#preview").innerHTML = v ? describe(parseQuick(v)) : ""; });
+$("#addForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const v = quick.value.trim(); if (!v) return;
+  const r = parseQuick(v);
+  if (!r.title) { toast("Add a few words describing it."); return; }
+  try { await db.collection("items").add(toDoc(r)); quick.value = ""; $("#preview").innerHTML = ""; toast("Added: " + r.title); }
+  catch (ex) { toast("Couldn't save. Check your connection and try again."); }
+});
+$("#moreBtn").addEventListener("click", () => {
+  const v = quick.value.trim();
+  openSheet(null, null, v ? parseQuick(v) : null); quick.value = ""; $("#preview").innerHTML = "";
+});
+$("#view").addEventListener("submit", async e => {
+  if (e.target.id !== "setupForm") return;
+  e.preventDefault();
+  const token = $("#sToken").value.trim(), repo = $("#sRepo").value.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/$/, "");
+  const err = $("#sErr");
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) { err.textContent = "Enter the repository as owner/name, e.g. Ollyj77/daybook-data."; return; }
+  err.textContent = "Checking…";
+  const prev = store.cfg; store.cfg = { token, repo };
+  try {
+    const p = await pull();
+    lsSet(CFG_KEY, store.cfg);
+    if (!prev || prev.repo !== repo) { store.queue = []; }
+    store.remote = p.items; store.sha = p.sha; persist();
+    settingsOpen = false; loaded = true; setStatus("ok"); emit(); flush(); toast("Connected");
+  } catch (x) {
+    store.cfg = prev;
+    err.textContent = x.code === "auth" ? "GitHub refused that key, or it can't see this repository. Check it has Contents: Read and write on daybook-data." : "Couldn't reach GitHub. Check your connection and try again.";
+  }
+});
+$("#manageBtn").addEventListener("click", () => { settingsOpen = false; view = view === "manage" ? "month" : "manage"; render(); window.scrollTo(0, 0); });
+$("#view").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "sCancel") { settingsOpen = false; return render(); }
+  if (b.dataset.sync) {
+    const a = b.dataset.sync;
+    if (a === "now") { flush(); refresh().then(render); toast("Syncing…"); }
+    else if (a === "key") { settingsOpen = true; render(); }
+    else if (a === "forget") {
+      if (b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = store.queue.length ? "Unsynced changes will be lost. Tap again" : "Tap again to disconnect"; return; }
+      try { [CFG_KEY, CACHE_KEY, QUEUE_KEY].forEach(k => localStorage.removeItem(k)); } catch (x) {}
+      store.cfg = null; store.remote = {}; store.sha = null; store.queue = []; items = []; loaded = false; render();
+    }
+    return;
+  }
+  if (b.dataset.tick) return toggle(b.dataset.tick, b.dataset.key);
+  if (b.dataset.edit) { const it = items.find(i => i.id === b.dataset.edit); if (it) openSheet(it, b.dataset.key); return; }
+  if (b.dataset.day) { selDay = b.dataset.day; monthOff = diffM(som(today()), som(P(selDay))); return render(); }
+  if (b.dataset.nav) {
+    const n = b.dataset.nav;
+    if (n === "w-1") weekOff--; else if (n === "w1") weekOff++; else if (n === "w0") weekOff = 0;
+    else if (n === "today") { monthOff = 0; selDay = ymd(today()); }
+    else if (n === "m-1") monthOff--; else if (n === "m1") monthOff++; else if (n === "m0") monthOff = 0;
+    render();
+  }
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#sheetRoot").innerHTML) $("#sheetRoot").innerHTML = ""; });
+
+// Re-render at midnight and every few minutes so "now" and rollover stay current.
+let lastDay = ymd(today());
+setInterval(() => { if (ymd(today()) !== lastDay) { lastDay = ymd(today()); recent.clear(); } if (!$("#sheetRoot").innerHTML) render(); }, 120000);
+
+render();
+db = ghdb;
+db.collection("items").onSnapshot(snap => {
+  items = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(i => i && i.title);
+  if (store.cfg && (Object.keys(store.remote).length || store.sha)) loaded = true;
+  render();
+});
+setStatus(store.status);
+if (store.cfg) refresh().then(() => { loaded = true; render(); });
+setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 60000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refresh(); });
+window.addEventListener("online", () => { flush(); refresh(); });
+})();
+</script>
+</body>
+</html>
