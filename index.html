@@ -528,7 +528,8 @@ function renderMonth() {
       ${selDay !== ymd(T) ? `<button class="btn small" data-nav="today">Today</button>` : ""}
       <button class="btn small" data-nav="m1" aria-label="Next month">→</button></div>
     <div class="grid2"><div class="block"><div class="panel"><div class="mgrid">${cells}</div></div>
-      ${taskPanel("Month tasks", mo, "No tasks set for this month.")}</div>
+      ${taskPanel("Month tasks", mo, "No tasks set for this month.")}
+      ${taskPanel("Someday", tasks().filter(t => t.scope === "someday").map(t => ({ t, s: current(t, T) })).filter(x => x.s).sort((a,b) => (a.s.done - b.s.done) || a.t.title.localeCompare(b.t.title)), "No someday ideas yet. Add one with “someday”, e.g. “learn soldering someday”.")}</div>
     <div class="block"><section><h2 class="sec">${isT ? "Today" : LONGWD[dIdx(S)] + " " + S.getDate() + " " + MON[S.getMonth()]}</h2>${schedule(S, isT)}</section>
       ${taskPanel("To do", dayTasks, "No tasks on this day.")}
       ${taskPanel(curW ? "This week" : "Week of " + W.getDate() + " " + MON[W.getMonth()], wk, "No tasks set for this week.")}</div></div>`;
