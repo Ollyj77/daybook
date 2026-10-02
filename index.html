@@ -183,22 +183,23 @@ h2.sec .count{font-family:var(--f-mono);font-size:.75rem;color:var(--muted);font
 .dk-hd{display:flex;justify-content:space-between;align-items:baseline;padding:11px 20px 9px;background:#000;color:#fff}
 .dk-hd h1{font-family:var(--f-display);font-size:34px;line-height:1.1;margin:0;font-weight:700;letter-spacing:-.01em}
 .dk-hd span{font-family:var(--f-mono);font-size:18px;font-weight:500}
-.dk-body{display:grid;grid-template-columns:340px 1fr;min-height:0}
+.dk-body{display:grid;grid-template-columns:1fr 300px;min-height:0}
 .dk-col{padding:14px 20px 10px;display:flex;flex-direction:column;gap:14px;min-height:0;overflow:hidden}
-.dk-col+.dk-col{border-left:2px solid #000}
+.dk-col+.dk-col{border-left:2px solid #000;padding-left:16px;padding-right:16px}
 .dk-lab{font-family:var(--f-mono);font-size:14px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:3px;margin-bottom:6px}
-.dk-next .when{font-family:var(--f-mono);font-size:19px;font-weight:500}
-.dk-next .what{font-family:var(--f-display);font-size:30px;font-weight:700;line-height:1.08;margin:2px 0;overflow-wrap:anywhere}
-.dk-next .where{font-size:19px;font-weight:500}
-.dk-row{display:grid;grid-template-columns:62px 1fr;gap:8px;align-items:baseline;padding:3px 0}
-.dk-row .tm{font-family:var(--f-mono);font-size:16px;font-weight:500}
-.dk-row .ti{font-size:18px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dk-row .ti small{font-weight:500;font-size:15px}
-.dk-task{display:flex;align-items:center;gap:10px;padding:4px 0}
-.dk-task i{flex:none;width:17px;height:17px;border:2.5px solid #000;border-radius:3px}
-.dk-task .ti{flex:1;min-width:0;font-size:20px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dk-task .mt{flex:none;font-family:var(--f-mono);font-size:14px;font-weight:500}
-.dk-task.old .mt{background:#000;color:#fff;padding:0 5px;border-radius:3px}
+.dk-row{display:grid;grid-template-columns:50px 1fr;gap:8px;align-items:baseline;padding:3px 0}
+.dk-row .tm{font-family:var(--f-mono);font-size:15px;font-weight:500}
+.dk-row .ti{font-size:17px;font-weight:600;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.dk-row .ti small{font-weight:500;font-size:14px}
+.dk-task{display:flex;align-items:center;gap:12px;padding:7px 0}
+.dk-task i{flex:none;width:21px;height:21px;border:3px solid #000;border-radius:4px}
+.dk-task .ti{flex:1;min-width:0;font-size:25px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk-task .mt{flex:none;font-family:var(--f-mono);font-size:15px;font-weight:500}
+.dk-task.old .mt{background:#000;color:#fff;padding:1px 6px;border-radius:3px}
+.dk-task.sm{gap:9px;padding:3px 0}
+.dk-task.sm i{width:15px;height:15px;border-width:2.5px;border-radius:3px}
+.dk-task.sm .ti{font-size:17px}
+.dk-task.sm .mt{font-size:12px}
 .dk-more,.dk-empty{font-size:16px;font-weight:500;padding:3px 0}
 .dk-ft{font-family:var(--f-mono);font-size:13px;padding:3px 20px;border-top:2px solid #000}
 </style>
@@ -615,49 +616,42 @@ function playFlip(before, movedKey) {
 const shortLec = s => s.replace(/^watch\s+/i, "").replace(/\s*\((mon|tue|wed|thu|fri|sat|sun)\w*\)\s*$/i, "");
 function deskView() {
   const T = today(), Tk = ymd(T), nowS = nowHM();
-  // Today's schedule: classes plus lectures that haven't started yet (once they start they move to the to-do list).
-  const rows = eventsOn(T).map(e => ({ s: e.start || "", e: e.end || "", title: e.title, sub: e.location || "", ev: true }));
-  for (const t of tasks()) if (t.after && t.repeat && t.repeat.unit && occ(t, T, T).length && !(t.doneDates || []).includes(Tk) && nowS < t.after)
-    rows.push({ s: t.after, e: "", title: shortLec(t.title), sub: "stream" });
-  rows.sort((a, b) => a.s.localeCompare(b.s));
-  const left = rows.filter(r => (r.e || r.s) > nowS);
-  // "Next": the class happening now or the next one, looking up to a week ahead.
-  let next = null, nextIdx = left.findIndex(r => r.ev);
-  if (nextIdx >= 0) {
-    const r = left[nextIdx];
-    next = { when: r.s <= nowS ? `Now · until ${fmtTime(r.e)}` : `${fmtTime(r.s)}${r.e ? "–" + fmtTime(r.e) : ""}`, r };
-  } else {
-    for (let i = 1; i <= 7 && !next; i++) {
-      const d = addD(T, i), e = eventsOn(d)[0];
-      if (e) next = { when: `${i === 1 ? "Tomorrow" : LONGWD[dIdx(d)]} · ${fmtTime(e.start)}`, r: { title: e.title, sub: e.location || "" } };
-    }
-  }
-  const rest = left.filter((_, i) => !(next && i === nextIdx));
-  const sched = rest.map(r => `<div class="dk-row dk-it"><span class="tm">${fmtTime(r.s)}</span><span class="ti">${esc(r.title)}${r.sub ? ` <small>· ${esc(r.sub)}</small>` : ""}</span></div>`).join("");
+  // Schedule for a day: classes plus lectures that haven't started yet (once a lecture starts it moves to the to-do list).
+  const dayRows = (D, isToday) => {
+    const Dk = ymd(D);
+    const rows = eventsOn(D).map(e => ({ s: e.start || "", e: e.end || "", title: e.title }));
+    for (const t of tasks()) if (t.after && t.repeat && t.repeat.unit && occ(t, D, D).length && !(t.doneDates || []).includes(Dk) && (!isToday || nowS < t.after))
+      rows.push({ s: t.after, e: "", title: shortLec(t.title), lec: true });
+    rows.sort((x, y) => x.s.localeCompare(y.s));
+    return isToday ? rows.filter(r => (r.e || r.s) > nowS) : rows;
+  };
+  let schedLab = "Later today", sched = dayRows(T, true);
+  if (!sched.length) { schedLab = "Tomorrow"; sched = dayRows(addD(T, 1), false); }
+  const schedHtml = sched.map(r => `<div class="dk-row dk-it"><span class="tm">${schedLab === "Later today" && r.s <= nowS ? "now" : fmtTime(r.s)}</span><span class="ti">${esc(r.title)}${r.lec ? " <small>(stream)</small>" : ""}</span></div>`).join("");
 
   // To do: due today and carried over (including lectures that have started or were missed).
-  const since = (t, k) => t.scope === "week" ? "last wk" : t.scope === "month" ? MON[P(k).getMonth()] : diffD(P(k), T) === 1 ? "yesterday" : WD[dIdx(P(k))] + " " + P(k).getDate();
+  const since = (t, k) => t.scope === "week" ? "last wk" : t.scope === "month" ? "last month" : diffD(P(k), T) === 1 ? "yesterday" : WD[dIdx(P(k))] + " " + P(k).getDate();
   const todo = tasksFor("day", T, true).filter(x => !x.s.done);
-  const wk = [...tasksFor("week", T, true), ...tasksFor("month", T, true)].filter(x => !x.s.done);
-  const line = ({ t, s }) => {
+  const wk = tasksFor("week", T, true).filter(x => !x.s.done);
+  const mo = tasksFor("month", T, true).filter(x => !x.s.done);
+  const line = small => ({ t, s }) => {
     const live = t.after && s.key === Tk && t.stack;
-    const meta = s.carried ? since(t, s.key) : live ? fmtTime(t.after) : t.scope === "month" ? LONGMON[T.getMonth()] : "";
-    return `<div class="dk-task dk-it ${s.carried ? "old" : ""}"><i></i><span class="ti">${esc(t.stack ? shortLec(t.title) : t.title)}</span>${meta ? `<span class="mt">${esc(meta)}</span>` : ""}</div>`;
+    const meta = s.carried ? since(t, s.key) : live ? fmtTime(t.after) : "";
+    return `<div class="dk-task dk-it ${small ? "sm" : ""} ${s.carried ? "old" : ""}"><i></i><span class="ti">${esc(t.stack ? shortLec(t.title) : t.title)}</span>${meta ? `<span class="mt">${esc(meta)}</span>` : ""}</div>`;
   };
-  const list = arr => arr.map(line).join("");
+  const side = (lab, arr) => arr.length ? `<section class="dk-fit"><div class="dk-lab"><span>${lab}</span><span>${arr.length}</span></div>${arr.map(line(true)).join("")}</section>` : "";
   const stale = store.status === "offline" || store.status === "auth";
 
   return `<div class="desk">
     <div class="dk-hd"><h1>${LONGWD[dIdx(T)]} ${T.getDate()} ${LONGMON[T.getMonth()]}</h1><span>Week ${isoWeek(T)}</span></div>
     <div class="dk-body">
       <div class="dk-col">
-        <section class="dk-next"><div class="dk-lab"><span>Next class</span></div>
-          ${next ? `<div class="when">${esc(next.when)}</div><div class="what">${esc(next.r.title)}</div>${next.r.sub ? `<div class="where">${esc(next.r.sub)}</div>` : ""}` : `<div class="dk-empty">Nothing booked this week.</div>`}</section>
-        <section class="dk-fit"><div class="dk-lab"><span>Later today</span></div>${sched || `<div class="dk-empty">Nothing else booked today.</div>`}</section>
+        <section class="dk-fit dk-main"><div class="dk-lab"><span>To do</span><span>${todo.length || ""}</span></div>${todo.length ? todo.map(line(false)).join("") : `<div class="dk-empty">All clear for today.</div>`}</section>
       </div>
       <div class="dk-col">
-        <section class="dk-fit" data-keep="3"><div class="dk-lab"><span>To do</span><span>${todo.length || ""}</span></div>${todo.length ? list(todo) : `<div class="dk-empty">All clear for today.</div>`}</section>
-        ${wk.length ? `<section class="dk-fit"><div class="dk-lab"><span>This week</span><span>${wk.length}</span></div>${list(wk)}</section>` : ""}
+        <section class="dk-fit" data-keep="2"><div class="dk-lab"><span>${schedLab}</span></div>${schedHtml || `<div class="dk-empty">Nothing booked.</div>`}</section>
+        ${side("This week", wk)}
+        ${side("This month", mo)}
       </div>
     </div>
     ${stale ? `<div class="dk-ft">${store.status === "auth" ? "Access key refused · showing saved data" : "Offline · showing saved data"}</div>` : ""}
