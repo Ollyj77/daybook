@@ -630,7 +630,7 @@ function deskView() {
   const schedHtml = sched.map(r => `<div class="dk-row dk-it"><span class="tm">${schedLab === "Later today" && r.s <= nowS ? "now" : fmtTime(r.s)}</span><span class="ti">${esc(r.title)}${r.lec ? " <small>(stream)</small>" : ""}</span></div>`).join("");
 
   // To do: due today and carried over (including lectures that have started or were missed).
-  const since = (t, k) => t.scope === "week" ? "last wk" : t.scope === "month" ? "last month" : diffD(P(k), T) === 1 ? "yesterday" : WD[dIdx(P(k))] + " " + P(k).getDate();
+  const since = (t, k) => t.scope === "week" ? "Last wk" : t.scope === "month" ? "Last month" : diffD(P(k), T) === 1 ? "Yesterday" : WD[dIdx(P(k))] + " " + P(k).getDate();
   const todo = tasksFor("day", T, true).filter(x => !x.s.done);
   const wk = tasksFor("week", T, true).filter(x => !x.s.done);
   const mo = tasksFor("month", T, true).filter(x => !x.s.done);
