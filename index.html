@@ -174,6 +174,33 @@ h2.sec .count{font-family:var(--f-mono);font-size:.75rem;color:var(--muted);font
 .err{color:var(--warn);font-size:.85rem}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:.88rem;z-index:30;max-width:calc(100% - 32px)}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
+
+/* desk view (?desk): an 800x480 page for the e-ink display. Pure black on white, no greys, so it survives 1-bit conversion. */
+.desk-mode{background:#fff;color:#000;padding:0}
+.desk-mode header.top{display:none}
+.desk-mode main .wrap{padding:0;max-width:none;margin:0}
+.desk{width:800px;height:480px;overflow:hidden;background:#fff;color:#000;display:grid;grid-template-rows:auto 1fr auto;font-family:var(--f-body)}
+.dk-hd{display:flex;justify-content:space-between;align-items:baseline;padding:11px 20px 9px;background:#000;color:#fff}
+.dk-hd h1{font-family:var(--f-display);font-size:34px;line-height:1.1;margin:0;font-weight:700;letter-spacing:-.01em}
+.dk-hd span{font-family:var(--f-mono);font-size:18px;font-weight:500}
+.dk-body{display:grid;grid-template-columns:340px 1fr;min-height:0}
+.dk-col{padding:14px 20px 10px;display:flex;flex-direction:column;gap:14px;min-height:0;overflow:hidden}
+.dk-col+.dk-col{border-left:2px solid #000}
+.dk-lab{font-family:var(--f-mono);font-size:14px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;display:flex;justify-content:space-between;border-bottom:2px solid #000;padding-bottom:3px;margin-bottom:6px}
+.dk-next .when{font-family:var(--f-mono);font-size:19px;font-weight:500}
+.dk-next .what{font-family:var(--f-display);font-size:30px;font-weight:700;line-height:1.08;margin:2px 0;overflow-wrap:anywhere}
+.dk-next .where{font-size:19px;font-weight:500}
+.dk-row{display:grid;grid-template-columns:62px 1fr;gap:8px;align-items:baseline;padding:3px 0}
+.dk-row .tm{font-family:var(--f-mono);font-size:16px;font-weight:500}
+.dk-row .ti{font-size:18px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk-row .ti small{font-weight:500;font-size:15px}
+.dk-task{display:flex;align-items:center;gap:10px;padding:4px 0}
+.dk-task i{flex:none;width:17px;height:17px;border:2.5px solid #000;border-radius:3px}
+.dk-task .ti{flex:1;min-width:0;font-size:20px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk-task .mt{flex:none;font-family:var(--f-mono);font-size:14px;font-weight:500}
+.dk-task.old .mt{background:#000;color:#fff;padding:0 5px;border-radius:3px}
+.dk-more,.dk-empty{font-size:16px;font-weight:500;padding:3px 0}
+.dk-ft{font-family:var(--f-mono);font-size:13px;padding:3px 20px;border-top:2px solid #000}
 </style>
 </head>
 <body>
@@ -209,7 +236,12 @@ const addM = (d,n) => new Date(d.getFullYear(), d.getMonth()+n, 1);
 const dim = (y,m) => new Date(y, m+1, 0).getDate();
 const diffD = (a,b) => Math.round((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate()) - Date.UTC(a.getFullYear(),a.getMonth(),a.getDate())) / 864e5);
 const diffM = (a,b) => (b.getFullYear()-a.getFullYear())*12 + b.getMonth() - a.getMonth();
-const today = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
+// "?at=2026-10-05T10:30" pins the clock, for previewing the desk view at another time.
+const QS = new URLSearchParams(location.search);
+const AT = QS.get("at") && !isNaN(new Date(QS.get("at"))) ? new Date(QS.get("at")) : null;
+const clock = () => AT ? new Date(AT) : new Date();
+const DESK = QS.has("desk");
+const today = () => { const n = clock(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
 const WD = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const LONGWD = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -281,6 +313,11 @@ const b64enc = str => { const b = new TextEncoder().encode(str); let bin = ""; f
 const store = { cfg: lsGet(CFG_KEY), remote: {}, sha: null, queue: lsGet(QUEUE_KEY) || [], listeners: [], flushing: false, status: "ok" };
 { const c = lsGet(CACHE_KEY); if (c && c.items) { store.remote = c.items; store.sha = c.sha || null; } }
 const persist = () => { lsSet(CACHE_KEY, { items: store.remote, sha: store.sha }); lsSet(QUEUE_KEY, store.queue); };
+// Desk device: the access key can arrive in the URL fragment (#key=…), which browsers never send to a server. Kept in memory only.
+if (DESK) {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get("key")) { store.cfg = { token: h.get("key"), repo: h.get("repo") || "Ollyj77/daybook-data" }; store.queue = []; }
+}
 function applyOp(its, op) {
   const n = { ...its };
   if (op.op === "set") n[op.id] = op.data;
@@ -420,7 +457,7 @@ function current(it, D) {
   return { key: k, done, carried: k !== Rk };
 }
 // Tasks with an "after" time stay hidden on the day until that time.
-const nowHM = () => { const n = new Date(); return `${pad(n.getHours())}:${pad(n.getMinutes())}`; };
+const nowHM = () => { const n = clock(); return `${pad(n.getHours())}:${pad(n.getMinutes())}`; };
 const released = (it, k) => !(it.after && k === ymd(today()) && nowHM() < it.after);
 // "stack" tasks (e.g. lecture recordings) keep every unticked occurrence, not just the latest.
 function stackStates(it, D) {
@@ -489,7 +526,7 @@ function taskPanel(title, list, emptyMsg) {
 function schedule(D, isToday) {
   const evs = eventsOn(D);
   if (!evs.length) return `<div class="panel"><div class="empty">Nothing booked${isToday ? " today" : ""}. Add a class or appointment with a time, like “lecture 10am-12pm every wed #uni”.</div></div>`;
-  const now = new Date(), nowS = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const now = clock(), nowS = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
   let html = "", placed = !isToday;
   for (const e of evs) {
     const endS = e.end || e.start;
@@ -572,8 +609,92 @@ function playFlip(before, movedKey) {
     a.onfinish = a.oncancel = () => el.classList.remove("moving");
   });
 }
+/* ---------- desk view ---------- */
+// What the e-ink display shows. Nothing on it changes minute to minute (no clock, no countdown),
+// so the screen only redraws when the content actually changes.
+const shortLec = s => s.replace(/^watch\s+/i, "").replace(/\s*\((mon|tue|wed|thu|fri|sat|sun)\w*\)\s*$/i, "");
+function deskView() {
+  const T = today(), Tk = ymd(T), nowS = nowHM();
+  // Today's schedule: classes plus lectures that haven't started yet (once they start they move to the to-do list).
+  const rows = eventsOn(T).map(e => ({ s: e.start || "", e: e.end || "", title: e.title, sub: e.location || "", ev: true }));
+  for (const t of tasks()) if (t.after && t.repeat && t.repeat.unit && occ(t, T, T).length && !(t.doneDates || []).includes(Tk) && nowS < t.after)
+    rows.push({ s: t.after, e: "", title: shortLec(t.title), sub: "stream" });
+  rows.sort((a, b) => a.s.localeCompare(b.s));
+  const left = rows.filter(r => (r.e || r.s) > nowS);
+  // "Next": the class happening now or the next one, looking up to a week ahead.
+  let next = null, nextIdx = left.findIndex(r => r.ev);
+  if (nextIdx >= 0) {
+    const r = left[nextIdx];
+    next = { when: r.s <= nowS ? `Now · until ${fmtTime(r.e)}` : `${fmtTime(r.s)}${r.e ? "–" + fmtTime(r.e) : ""}`, r };
+  } else {
+    for (let i = 1; i <= 7 && !next; i++) {
+      const d = addD(T, i), e = eventsOn(d)[0];
+      if (e) next = { when: `${i === 1 ? "Tomorrow" : LONGWD[dIdx(d)]} · ${fmtTime(e.start)}`, r: { title: e.title, sub: e.location || "" } };
+    }
+  }
+  const rest = left.filter((_, i) => !(next && i === nextIdx));
+  const sched = rest.map(r => `<div class="dk-row dk-it"><span class="tm">${fmtTime(r.s)}</span><span class="ti">${esc(r.title)}${r.sub ? ` <small>· ${esc(r.sub)}</small>` : ""}</span></div>`).join("");
+
+  // To do: due today and carried over (including lectures that have started or were missed).
+  const since = (t, k) => t.scope === "week" ? "last wk" : t.scope === "month" ? MON[P(k).getMonth()] : diffD(P(k), T) === 1 ? "yesterday" : WD[dIdx(P(k))] + " " + P(k).getDate();
+  const todo = tasksFor("day", T, true).filter(x => !x.s.done);
+  const wk = [...tasksFor("week", T, true), ...tasksFor("month", T, true)].filter(x => !x.s.done);
+  const line = ({ t, s }) => {
+    const live = t.after && s.key === Tk && t.stack;
+    const meta = s.carried ? since(t, s.key) : live ? fmtTime(t.after) : t.scope === "month" ? LONGMON[T.getMonth()] : "";
+    return `<div class="dk-task dk-it ${s.carried ? "old" : ""}"><i></i><span class="ti">${esc(t.stack ? shortLec(t.title) : t.title)}</span>${meta ? `<span class="mt">${esc(meta)}</span>` : ""}</div>`;
+  };
+  const list = arr => arr.map(line).join("");
+  const stale = store.status === "offline" || store.status === "auth";
+
+  return `<div class="desk">
+    <div class="dk-hd"><h1>${LONGWD[dIdx(T)]} ${T.getDate()} ${LONGMON[T.getMonth()]}</h1><span>Week ${isoWeek(T)}</span></div>
+    <div class="dk-body">
+      <div class="dk-col">
+        <section class="dk-next"><div class="dk-lab"><span>Next class</span></div>
+          ${next ? `<div class="when">${esc(next.when)}</div><div class="what">${esc(next.r.title)}</div>${next.r.sub ? `<div class="where">${esc(next.r.sub)}</div>` : ""}` : `<div class="dk-empty">Nothing booked this week.</div>`}</section>
+        <section class="dk-fit"><div class="dk-lab"><span>Later today</span></div>${sched || `<div class="dk-empty">Nothing else booked today.</div>`}</section>
+      </div>
+      <div class="dk-col">
+        <section class="dk-fit" data-keep="3"><div class="dk-lab"><span>To do</span><span>${todo.length || ""}</span></div>${todo.length ? list(todo) : `<div class="dk-empty">All clear for today.</div>`}</section>
+        ${wk.length ? `<section class="dk-fit"><div class="dk-lab"><span>This week</span><span>${wk.length}</span></div>${list(wk)}</section>` : ""}
+      </div>
+    </div>
+    ${stale ? `<div class="dk-ft">${store.status === "auth" ? "Access key refused · showing saved data" : "Offline · showing saved data"}</div>` : ""}
+  </div>`;
+}
+
+// Lists are rendered in full, then trimmed from the end until each column fits, with a "+N more" line.
+function fitDesk() {
+  const vis = sec => [...sec.querySelectorAll(".dk-it:not([hidden])")];
+  document.querySelectorAll("#view .dk-col").forEach(col => {
+    const secs = [...col.querySelectorAll(".dk-fit")];
+    for (let g = 0; g < 80 && col.scrollHeight > col.clientHeight + 1; g++) {
+      // Trim the longest list first. The to-do list keeps at least 3 rows while another list can still give way.
+      const cand = secs.map(sec => ({ sec, v: vis(sec), keep: +(sec.dataset.keep || 1) })).sort((x, y) => (y.v.length - y.keep) - (x.v.length - x.keep));
+      const pick = cand.find(x => x.v.length > x.keep) || cand.find(x => x.v.length > 1);
+      if (!pick) break;
+      pick.v[pick.v.length - 1].hidden = true;
+      let more = pick.sec.querySelector(".dk-more");
+      if (!more) { more = document.createElement("div"); more.className = "dk-more"; pick.sec.appendChild(more); }
+      more.textContent = `+${pick.sec.querySelectorAll(".dk-it[hidden]").length} more`;
+    }
+  });
+}
+
 let lastTicked = "", animUntil = 0, deferT = 0;
 function render() {
+  if (DESK) {
+    document.body.classList.add("desk-mode");
+    document.documentElement.dataset.theme = "light";
+    const v = $("#view");
+    if (!store.cfg) { v.innerHTML = `<div class="desk"><div class="dk-col"><div class="dk-empty">No access key. Open Daybook normally on this device and connect it, or add #key=… to the address.</div></div></div>`; return; }
+    // Without fresh or saved data, show a plain message (no header bar), which the Pi treats as "not ready" and ignores.
+    if (!loaded || (store.status !== "ok" && !Object.keys(store.remote).length)) { v.innerHTML = `<div class="desk"><div class="dk-col"><div class="dk-empty">${store.status === "auth" ? "GitHub refused the access key." : store.status === "offline" ? "Can't reach GitHub." : "Loading…"}</div></div></div>`; return; }
+    v.innerHTML = deskView();
+    fitDesk();
+    return;
+  }
   const T = today();
   $("#hdDate").textContent = `${LONGWD[dIdx(T)]} ${T.getDate()} ${LONGMON[T.getMonth()]}`;
   $("#hdMeta").textContent = `wk ${isoWeek(T)} · ${T.getFullYear()}`;
@@ -862,7 +983,7 @@ db.collection("items").onSnapshot(snap => {
   render();
 });
 setStatus(store.status);
-if (store.cfg) refresh().then(() => { loaded = true; render(); });
+if (store.cfg) refresh().then(() => { loaded = true; render(); document.body.dataset.ready = "1"; });
 setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 60000);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refresh(); });
 window.addEventListener("online", () => { flush(); refresh(); });
