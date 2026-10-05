@@ -77,6 +77,8 @@ main .wrap{padding-block:18px 60px}
 .grid2{display:grid;gap:22px}
 @media (min-width:760px){.grid2{grid-template-columns:5fr 6fr;align-items:start}}
 .grid2>*{min-width:0}
+/* Phone (portrait): one column in reading order — calendar, day, to do, someday, this week, this month. */
+@media (max-width:759px){.daygrid{gap:18px}.daygrid>.block{display:contents}.daygrid>.block>*{order:var(--o,9);min-width:0}}
 
 h2.sec{font-family:var(--f-display);font-size:1.05rem;font-weight:600;margin:0 0 8px;display:flex;align-items:baseline;gap:8px}
 h2.sec .count{font-family:var(--f-mono);font-size:.75rem;color:var(--muted);font-weight:400}
@@ -565,12 +567,12 @@ function renderMonth() {
       <span class="lbl">${LONGMON[M.getMonth()]} ${M.getFullYear()}</span>
       ${selDay !== ymd(T) ? `<button class="btn small" data-nav="today">Today</button>` : ""}
       <button class="btn small" data-nav="m1" aria-label="Next month">→</button></div>
-    <div class="grid2"><div class="block"><div class="panel"><div class="mgrid">${cells}</div></div>
-      ${taskPanel("Month tasks", mo, "No tasks set for this month.")}
-      ${taskPanel("Someday", tasks().filter(t => t.scope === "someday").map(t => ({ t, s: current(t, T) })).filter(x => x.s).sort((a,b) => (a.s.done - b.s.done) || a.t.title.localeCompare(b.t.title)), "No someday ideas yet. Add one with “someday”, e.g. “learn soldering someday”.")}</div>
-    <div class="block"><section><h2 class="sec">${isT ? "Today" : LONGWD[dIdx(S)] + " " + S.getDate() + " " + MON[S.getMonth()]}</h2>${schedule(S, isT)}</section>
-      ${taskPanel("To do", dayTasks, "No tasks on this day.")}
-      ${taskPanel(curW ? "This week" : "Week of " + W.getDate() + " " + MON[W.getMonth()], wk, "No tasks set for this week.")}</div></div>`;
+    <div class="grid2 daygrid"><div class="block"><div class="panel" style="--o:1"><div class="mgrid">${cells}</div></div>
+      <div style="--o:6">${taskPanel("Month tasks", mo, "No tasks set for this month.")}</div>
+      <div style="--o:4">${taskPanel("Someday", tasks().filter(t => t.scope === "someday").map(t => ({ t, s: current(t, T) })).filter(x => x.s).sort((a,b) => (a.s.done - b.s.done) || a.t.title.localeCompare(b.t.title)), "No someday ideas yet. Add one with “someday”, e.g. “learn soldering someday”.")}</div></div>
+    <div class="block"><section style="--o:2"><h2 class="sec">${isT ? "Today" : LONGWD[dIdx(S)] + " " + S.getDate() + " " + MON[S.getMonth()]}</h2>${schedule(S, isT)}</section>
+      <div style="--o:3">${taskPanel("To do", dayTasks, "No tasks on this day.")}</div>
+      <div style="--o:5">${taskPanel(curW ? "This week" : "Week of " + W.getDate() + " " + MON[W.getMonth()], wk, "No tasks set for this week.")}</div></div></div>`;
 }
 function renderManage() {
   const T = today();
