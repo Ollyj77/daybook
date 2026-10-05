@@ -433,6 +433,28 @@ function syncSection() {
     <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small" type="button" data-sync="now">Sync now</button><button class="btn small" type="button" data-sync="key">Change access key</button><button class="btn small danger" type="button" data-sync="forget">Disconnect this device</button></div></div></section>`;
 }
 
+/* ---------- UNSW term weeks ----------
+   [teaching start (Mon of week 1), last exam day]. From the UNSW academic calendar.
+   Week 10 ends Fri start+68; study period runs to start+73; exams start+74 to the last exam day.
+   Add the next years' terms here when UNSW publishes them. */
+const TERMS = [["2026-02-16","2026-05-14"],["2026-06-01","2026-08-27"],["2026-09-14","2026-12-10"],
+               ["2027-02-15","2027-05-13"],["2027-05-31","2027-08-26"],["2027-09-13","2027-12-09"]];
+function uniWeek(d) {
+  for (let i = 0; i < TERMS.length; i++) {
+    const s = P(TERMS[i][0]), x = diffD(s, d), end = P(TERMS[i][1]);
+    if (x >= 0 && x < 68) { const w = Math.floor(x / 7) + 1; return w === 6 ? "uni week 6 · flexi" : `uni week ${w}`; }
+    if (x >= 68 && d <= end) return x < 74 ? "uni study period" : "uni exams";
+    const next = TERMS[i + 1];
+    if (next && d > end && d < P(next[0])) {
+      const after = addD(end, 1), mon = addD(after, (7 - dIdx(after)) % 7);
+      const total = Math.round(diffD(mon, P(next[0])) / 7);
+      const n = Math.min(total, Math.max(1, Math.floor(diffD(mon, d) / 7) + 1));
+      return `uni break week ${n}/${total}`;
+    }
+  }
+  return "";
+}
+
 /* ---------- state ---------- */
 let db = null, items = [], loaded = false, view = "month";
 let weekOff = 0, monthOff = 0, selDay = null;
@@ -693,7 +715,8 @@ function render() {
   }
   const T = today();
   $("#hdDate").textContent = `${LONGWD[dIdx(T)]} ${T.getDate()} ${LONGMON[T.getMonth()]}`;
-  $("#hdMeta").textContent = `wk ${isoWeek(T)} · ${T.getFullYear()}`;
+  const uw = uniWeek(T);
+  $("#hdMeta").textContent = `wk ${isoWeek(T)} · ${T.getFullYear()}` + (uw ? ` · ${uw}` : "");
   $("#manageBtn").textContent = view === "manage" ? "Back to calendar" : "Manage";
   const v = $("#view");
   setStatus(store.status);
