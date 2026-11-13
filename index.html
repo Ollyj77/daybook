@@ -691,7 +691,7 @@ function deskView() {
   // Schedule for a day: classes plus lectures that haven't started yet (once a lecture starts it moves to the to-do list).
   const dayRows = (D, isToday) => {
     const Dk = ymd(D);
-    const rows = eventsOn(D).map(e => ({ s: e.start || "", e: e.end || "", title: e.title }));
+    const rows = eventsOn(D).map(e => ({ s: e.start || "", e: e.allDay ? "24:00" : (e.end || ""), title: e.title, allDay: !!e.allDay }));
     for (const t of tasks()) if (t.after && t.repeat && t.repeat.unit && occ(t, D, D).length && !(t.doneDates || []).includes(Dk) && (!isToday || nowS < t.after))
       rows.push({ s: t.after, e: "", title: shortLec(t.title), lec: true });
     rows.sort((x, y) => x.s.localeCompare(y.s));
@@ -699,7 +699,7 @@ function deskView() {
   };
   let schedLab = "Later today", sched = dayRows(T, true);
   if (!sched.length) { schedLab = "Tomorrow"; sched = dayRows(addD(T, 1), false); }
-  const schedHtml = sched.map(r => `<div class="dk-row dk-it"><span class="tm">${schedLab === "Later today" && r.s <= nowS ? "now" : fmtTime(r.s)}</span><span class="ti">${esc(r.title)}${r.lec ? " <small>(stream)</small>" : ""}</span></div>`).join("");
+  const schedHtml = sched.map(r => `<div class="dk-row dk-it"><span class="tm">${r.allDay ? "all day" : schedLab === "Later today" && r.s <= nowS ? "now" : fmtTime(r.s)}</span><span class="ti">${esc(r.title)}${r.lec ? " <small>(stream)</small>" : ""}</span></div>`).join("");
 
   // To do: due today and carried over (including lectures that have started or were missed).
   const since = (t, k) => t.scope === "week" ? "Last wk" : t.scope === "month" ? "Last month" : diffD(P(k), T) === 1 ? "Yesterday" : WD[dIdx(P(k))] + " " + P(k).getDate();
