@@ -21,7 +21,7 @@
 :root{
   --bg:#F2F4F7; --surface:#FFFFFF; --ink:#17202B; --muted:#5F6B7C; --rule:#DCE1E8; --soft:#E7EDF7;
   --accent:#1F5FD1; --accent-ink:#FFFFFF; --warn:#B8430E;
-  --c-uni:#2C6BDB; --c-study:#7449D0; --c-life:#15875C; --c-other:#B07A0C; --c-work:#B8327E;
+  --c-uni:#2C6BDB; --c-study:#7449D0; --c-life:#15875C; --c-other:#B07A0C; --c-work:#B8327E; --c-apple:#5B6878;
   --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
   --f-body:"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -30,11 +30,11 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0E131A; --surface:#161D26; --ink:#E5E9EF; --muted:#8F9AAB; --rule:#28323F; --soft:#1B2638;
   --accent:#6E9CFF; --accent-ink:#0B1220; --warn:#F0895A;
-  --c-uni:#6E9CFF; --c-study:#AA8BF1; --c-life:#4BC794; --c-other:#E2B04A; --c-work:#F07BB8; color-scheme:dark }}
+  --c-uni:#6E9CFF; --c-study:#AA8BF1; --c-life:#4BC794; --c-other:#E2B04A; --c-work:#F07BB8; --c-apple:#9AA6B6; color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#0E131A; --surface:#161D26; --ink:#E5E9EF; --muted:#8F9AAB; --rule:#28323F; --soft:#1B2638;
   --accent:#6E9CFF; --accent-ink:#0B1220; --warn:#F0895A;
-  --c-uni:#6E9CFF; --c-study:#AA8BF1; --c-life:#4BC794; --c-other:#E2B04A; --c-work:#F07BB8; color-scheme:dark }
+  --c-uni:#6E9CFF; --c-study:#AA8BF1; --c-life:#4BC794; --c-other:#E2B04A; --c-work:#F07BB8; --c-apple:#9AA6B6; color-scheme:dark }
 html{color-scheme:light}
 html,body{min-height:100%}
 body{margin:0;padding-bottom:env(safe-area-inset-bottom,0px);-webkit-tap-highlight-color:transparent}
@@ -315,6 +315,22 @@ const b64dec = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/
 const b64enc = str => { const b = new TextEncoder().encode(str); let bin = ""; for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(bin); };
 const store = { cfg: lsGet(CFG_KEY), remote: {}, sha: null, queue: lsGet(QUEUE_KEY) || [], listeners: [], flushing: false, status: "ok" };
 { const c = lsGet(CACHE_KEY); if (c && c.items) { store.remote = c.items; store.sha = c.sha || null; } }
+// Apple Calendar events, uploaded to apple.json by an iPhone Shortcut. Read-only here.
+const APPLE_KEY = "daybook.apple";
+store.apple = lsGet(APPLE_KEY) || { events: [], updated: null };
+async function pullApple() {
+  const { token, repo } = store.cfg;
+  let r; try { r = await fetch(`https://api.github.com/repos/${repo}/contents/apple.json?t=${Date.now()}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" } }); } catch (e) { return; }
+  if (r.status === 404) { store.apple = { events: [], updated: null }; lsSet(APPLE_KEY, store.apple); return; }
+  if (!r.ok) return;
+  try {
+    const j = await r.json();
+    const d = JSON.parse(b64dec(j.content || "") || "{}");
+    const evs = Array.isArray(d) ? d : (Array.isArray(d.events) ? d.events : []);
+    store.apple = { events: evs.filter(e => e && e.title), updated: d.updated || null };
+    lsSet(APPLE_KEY, store.apple);
+  } catch (e) { /* a malformed upload leaves the last good copy in place */ }
+}
 const persist = () => { lsSet(CACHE_KEY, { items: store.remote, sha: store.sha }); lsSet(QUEUE_KEY, store.queue); };
 // Desk device: the access key can arrive in the URL fragment (#key=…), which browsers never send to a server. Kept in memory only.
 if (DESK) {
@@ -389,7 +405,8 @@ async function refresh() {
   if (!store.cfg || store.flushing) return;
   try {
     const p = await pull();
-    store.remote = p.items; store.sha = p.sha; persist(); emit();
+    store.remote = p.items; store.sha = p.sha; persist();
+    await pullApple(); emit();
     if (store.queue.length) flush(); else setStatus("ok");
   } catch (e) { setStatus(e.code === "auth" ? "auth" : "offline"); }
 }
@@ -425,11 +442,22 @@ function setupPanel(errMsg, forChange) {
   </form></div>`;
 }
 let settingsOpen = false;
+function appleStatus() {
+  const a = store.apple;
+  if (!a.updated && !(a.events || []).length) return "Not set up yet. Run the “Daybook Calendar Sync” shortcut on your iPhone.";
+  const n = (a.events || []).length, u = a.updated ? new Date(a.updated) : null;
+  const ago = u && !isNaN(u) ? Math.round((Date.now() - u) / 60000) : null;
+  const when = ago == null ? "" : ago < 2 ? "just now" : ago < 90 ? `${ago} min ago` : ago < 48*60 ? `${Math.round(ago/60)} h ago` : `${Math.round(ago/1440)} days ago`;
+  return `${n} event${n === 1 ? "" : "s"}${when ? " · last updated " + when : ""}${ago != null && ago > 3*1440 ? " · check the shortcut is still running" : ""}`;
+}
 function syncSection() {
   const n = store.queue.length;
   return `<section><h2 class="sec">Sync</h2><div class="panel"><div class="row" style="cursor:default"><span class="bar" style="--cat:var(--c-life)"></span><div>
     <div class="name">${esc(store.cfg ? store.cfg.repo : "Not connected")}</div>
     <div class="sub">${store.status === "auth" ? "GitHub refused the access key. Replace it below." : store.status === "offline" ? `Offline · ${n} change${n === 1 ? "" : "s"} waiting to sync` : n ? "Saving…" : "Everything is saved"}</div></div></div>
+    <div class="row" style="cursor:default"><span class="bar" style="--cat:var(--c-apple)"></span><div>
+    <div class="name">Apple Calendar</div>
+    <div class="sub">${appleStatus()}</div></div></div>
     <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn small" type="button" data-sync="now">Sync now</button><button class="btn small" type="button" data-sync="key">Change access key</button><button class="btn small danger" type="button" data-sync="forget">Disconnect this device</button></div></div></section>`;
 }
 
@@ -501,7 +529,27 @@ function exact(it, R) {
 }
 const tasks = () => items.filter(i => i.kind === "task");
 const events = () => items.filter(i => i.kind === "event");
-const eventsOn = d => events().filter(e => occ(e, d, d).length).sort((a,b) => (a.start||"").localeCompare(b.start||""));
+const DT_RE = /(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/;
+const parseDT = v => { const m = String(v || "").match(DT_RE); return m ? { d: new Date(+m[1], +m[2]-1, +m[3]), t: m[4] != null ? `${pad(+m[4])}:${m[5]}` : "" } : null; };
+const truthy = v => v === true || v === 1 || /^(true|yes|1)$/i.test(String(v ?? "").trim());
+function appleOn(d) {
+  const out = [], k = ymd(d), own = events().filter(e => occ(e, d, d).length);
+  (store.apple.events || []).forEach((e, i) => {
+    const s = parseDT(e.start), en = parseDT(e.end) || s; if (!s) return;
+    let last = en.d; if (en.t === "00:00" && last > s.d) last = addD(last, -1);
+    if (d < s.d || d > last) return;
+    const allDay = truthy(e.allDay) || (!s.t && !en.t);
+    const first = ymd(s.d) === k, lastDay = ymd(last) === k;
+    const start = allDay ? "" : first ? s.t : "", end = allDay ? "" : lastDay && en.t !== "00:00" ? en.t : "";
+    // Skip copies of things Daybook already has (e.g. a class that is also in a subscribed calendar).
+    const t = String(e.title).trim().toLowerCase();
+    if (own.some(o => (o.start || "") === start && o.title.trim().toLowerCase() === t)) return;
+    out.push({ id: `apple:${i}`, kind: "event", apple: true, title: String(e.title), location: e.location || "", calName: e.calendar || "",
+      allDay: allDay || (!start && !end), start, end, date: k });
+  });
+  return out;
+}
+const eventsOn = d => events().filter(e => occ(e, d, d).length).concat(appleOn(d)).sort((a,b) => (a.start||"").localeCompare(b.start||""));
 function tasksFor(scope, D, carry) {
   const R = periodStart(scope, D);
   return tasks().filter(t => (t.scope || "day") === scope)
@@ -556,10 +604,10 @@ function schedule(D, isToday) {
   for (const e of evs) {
     const endS = e.end || e.start;
     if (!placed && (e.start || "") > nowS) { html += `<div class="nowline">now ${fmtTime(nowS)}</div>`; placed = true; }
-    const past = isToday && endS && endS < nowS;
-    html += `<button class="ev ${past ? "past" : ""}" style="${catVar(e.category)}" data-edit="${e.id}" data-key="${ymd(D)}">
-      <div class="t">${fmtTime(e.start)}${e.end ? "<br>" + fmtTime(e.end) : ""}</div>
-      <div class="body"><div class="name">${esc(e.title)}</div><div class="sub">${[e.location, repeatText(e)].filter(Boolean).map(esc).join(" · ")}</div></div>
+    const past = isToday && !e.allDay && endS && endS < nowS;
+    html += `<button class="ev ${past ? "past" : ""}" style="${e.apple ? "--cat:var(--c-apple)" : catVar(e.category)}" data-edit="${e.id}" data-key="${ymd(D)}">
+      <div class="t">${e.allDay ? "All day" : (e.start ? fmtTime(e.start) : "") + (e.end ? (e.start ? "<br>" : "until ") + fmtTime(e.end) : "")}</div>
+      <div class="body"><div class="name">${esc(e.title)}</div><div class="sub">${(e.apple ? [e.location, "Apple Calendar" + (e.calName ? " · " + e.calName : "")] : [e.location, repeatText(e)]).filter(Boolean).map(esc).join(" · ")}</div></div>
     </button>`;
   }
   if (!placed) html += `<div class="nowline">now ${fmtTime(nowS)}</div>`;
@@ -577,7 +625,7 @@ function renderMonth() {
     if (i >= 35 && d.getMonth() !== M.getMonth()) break;
     const k = ymd(d);
     const evs = eventsOn(d), ts = tasksFor("day", d, false).filter(x => !x.s.done);
-    const dots = [...evs.slice(0,4).map(e => `<i style="${catVar(e.category)}"></i>`), ...ts.slice(0,3).map(x => `<i class="sq" style="${catVar(x.t.category)}"></i>`)].join("");
+    const dots = [...evs.slice(0,4).map(e => `<i style="${e.apple ? "--cat:var(--c-apple)" : catVar(e.category)}"></i>`), ...ts.slice(0,3).map(x => `<i class="sq" style="${catVar(x.t.category)}"></i>`)].join("");
     cells += `<button class="cell ${d.getMonth() !== M.getMonth() ? "out" : ""} ${k === ymd(T) ? "today" : ""} ${k === selDay ? "sel" : ""}" data-day="${k}" aria-label="${fmtShort(d)}"><span class="n">${d.getDate()}</span><span class="dots">${dots}</span></button>`;
   }
   const S = P(selDay), isT = selDay === ymd(T);
@@ -978,6 +1026,7 @@ $("#view").addEventListener("click", e => {
     return;
   }
   if (b.dataset.tick) return toggle(b.dataset.tick, b.dataset.key);
+  if (b.dataset.edit && b.dataset.edit.startsWith("apple:")) { toast("This is from Apple Calendar. Change it in the Calendar app."); return; }
   if (b.dataset.edit) { const it = items.find(i => i.id === b.dataset.edit); if (it) openSheet(it, b.dataset.key); return; }
   if (b.dataset.day) { selDay = b.dataset.day; monthOff = diffM(som(today()), som(P(selDay))); return render(); }
   if (b.dataset.nav) {
